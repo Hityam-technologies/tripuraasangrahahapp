@@ -7,10 +7,34 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
-import { APP_CATEGORIES } from '../data';
 
-export { APP_CATEGORIES };
+const ALL_CATEGORY = [{ id: 'all', label: 'All', image: null, icon: 'grid-outline' }];
+
+const CATEGORY_ICON_MAP = {
+  all: 'grid-outline',
+  saree: 'ribbon-outline',
+  sarees: 'ribbon-outline',
+  kanchipuram: 'ribbon-outline',
+  banarasi: 'flower-outline',
+  bridal: 'diamond-outline',
+  wedding: 'diamond-outline',
+  handloom: 'shirt-outline',
+  silk: 'ribbon-outline',
+  chanderi: 'flower-outline',
+};
+
+function resolveCategoryIcon(tab) {
+  if (tab?.icon) return tab.icon;
+  const key = (tab?.id || tab?.label || '').toLowerCase().trim();
+  if (key === 'all') return 'grid-outline';
+  if (CATEGORY_ICON_MAP[key]) return CATEGORY_ICON_MAP[key];
+  for (const [k, v] of Object.entries(CATEGORY_ICON_MAP)) {
+    if (key.includes(k)) return v;
+  }
+  return 'grid-outline';
+}
 
 /**
  * CategoryStoryBar
@@ -26,7 +50,7 @@ export { APP_CATEGORIES };
 export function CategoryStoryBar({
   activeCategory = 'all',
   onSelectCategory,
-  categories = APP_CATEGORIES,
+  categories = ALL_CATEGORY,
   style,
   contentContainerStyle,
 }) {
@@ -117,13 +141,31 @@ export function CategoryStoryBar({
                   height: '100%',
                   borderRadius: circleSize / 2,
                   overflow: 'hidden',
-                  backgroundColor: '#F3EFE8',
+                  backgroundColor: tab.image
+                    ? '#F3EFE8'
+                    : isActive
+                    ? '#FFF5EB'
+                    : '#FAF7F2',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}>
-                <Image
-                  source={tab.image}
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
+                {tab.image ? (
+                  <Image
+                    source={tab.image}
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Icon
+                    name={resolveCategoryIcon(tab)}
+                    size={isSmallDevice ? 24 : 27}
+                    color={
+                      isActive
+                        ? colours.saffron || '#BF5B21'
+                        : '#5C554B'
+                    }
+                  />
+                )}
               </View>
             </View>
 

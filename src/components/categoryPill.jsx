@@ -13,8 +13,8 @@ import colours from '../assets/colours';
  * Relevant icon fallback mapping for traditional luxury attire categories.
  */
 const RELEVANT_ICON_MAP = {
-  all: 'sparkles',
-  everything: 'sparkles',
+  all: 'grid-outline',
+  everything: 'grid-outline',
   featured: 'sparkles',
   'new in': 'sparkles',
   sarees: 'ribbon',
