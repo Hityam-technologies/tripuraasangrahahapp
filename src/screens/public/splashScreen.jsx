@@ -1,8 +1,9 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
-  Pressable,
+  Image,
+  Platform,
   StatusBar,
   Text,
   TouchableOpacity,
@@ -10,142 +11,242 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import GradientBackground from '../../components/gradientBackground';
 import colours from '../../assets/colours';
-import BrandLogo, { LOGO_ASPECT, LOGO_SIZE } from '../../components/brandLogo';
-
-const LOGO_W = LOGO_SIZE;
-const LOGO_H = Math.round(LOGO_W * LOGO_ASPECT);
-const LOGO_PAD_X = 24;
-const LOGO_PAD_TOP = 12;
+import { useAuth } from '../../context/authContext';
 
 /**
  * SplashScreen
- * Brand logo smoothly translates from screen center to top-left at constant size.
+ *
+ * Dedicated Luxury Splash Screen:
+ * - For logged-in users: A single clean screen with the Tripuraa Sangrahah logo in the center.
+ *   After loading finishes, the logo animates and glides smoothly to the top-left of the screen,
+ *   docking into the exact position of the HomeScreen header logo for a seamless transition.
+ * - For unauthenticated users: Displays the brand intro and Get Started CTA to enter Login.
  */
 function SplashScreen({ navigation }) {
+  const { user, ready, forceUpdate } = useAuth();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const isSmallDevice = screenWidth < 375;
 
-  const animProgress = useRef(new Animated.Value(0)).current;
-  const isAnimatedRef = useRef(false);
+  const topInset = Math.max(
+    insets.top,
+    Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
+  );
 
-  const startAnimation = useCallback(() => {
-    if (isAnimatedRef.current) return;
-    isAnimatedRef.current = true;
+  // Exact target position matching HomeScreen top-left logo
+  const targetWidth = isSmallDevice ? 175 : 210;
+  const targetHeight = Math.round(targetWidth / (1672 / 941));
+  const targetLeft = isSmallDevice ? 2 : 4;
+  const targetTop = topInset + (Platform.OS === 'android' ? -20 : -2);
 
-    Animated.timing(animProgress, {
-      toValue: 1,
-      duration: 1100,
-      easing: Easing.bezier(0.25, 1, 0.4, 1),
-      useNativeDriver: false,
-    }).start();
-  }, [animProgress]);
+  // Exact screen center coordinates
+  const centerX = (screenWidth - targetWidth) / 2;
+  const centerY = (screenHeight - targetHeight) / 2;
 
+  // Delta offsets for native transform translation
+  const deltaX = centerX - targetLeft;
+  const deltaY = centerY - targetTop;
+
+  const moveAnim = useRef(new Animated.Value(0)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const onboardingFade = useRef(new Animated.Value(0)).current;
+  const hasMovedRef = useRef(false);
+  const mountTimeRef = useRef(Date.now());
+
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // 1. Initial fade-in of centered logo
   useEffect(() => {
-    const timer = setTimeout(() => {
-      startAnimation();
-    }, 2200);
-    return () => clearTimeout(timer);
-  }, [startAnimation]);
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 500,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: true,
+    }).start();
+  }, [fadeAnim]);
 
-  const heroHeightTarget = Math.round(height * 0.48);
-  const cornerRadius = 36;
-  const finalLogoTop = insets.top + LOGO_PAD_TOP;
-  const finalLogoLeft = LOGO_PAD_X;
+  // 2. React to auth bootstrap / loading resolution
+  useEffect(() => {
+    if (!ready) return undefined;
 
-  const contentOpacity = animProgress.interpolate({
-    inputRange: [0, 0.35, 1],
-    outputRange: [0, 0, 1],
-  });
+    // Minimum display time (1100ms) to ensure comfortable brand visibility
+    const elapsed = Date.now() - mountTimeRef.current;
+    const wait = Math.max(0, 1100 - elapsed);
 
-  const heroHeight = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [height, heroHeightTarget],
-  });
-  const heroCorner = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, cornerRadius],
-  });
-  const contentY = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [50, 0],
-  });
+    if (user && !forceUpdate) {
+      // LOGGED-IN FLOW:
+      // Single screen with centered logo; upon loading finish, logo moves to top-left and enters Home
+      const timer = setTimeout(() => {
+        if (hasMovedRef.current) return;
+        hasMovedRef.current = true;
 
-  const logoTop = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [height / 2 - LOGO_H / 2, finalLogoTop],
-  });
-  const logoTranslateX = animProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, finalLogoLeft - (width - LOGO_W) / 2],
-  });
+        Animated.timing(moveAnim, {
+          toValue: 1,
+          duration: 850,
+          easing: Easing.bezier(0.22, 1, 0.36, 1),
+          useNativeDriver: true,
+        }).start(({ finished }) => {
+          if (finished) {
+            navigation?.reset?.({ index: 0, routes: [{ name: 'MainTabs' }] });
+          }
+        });
+      }, wait);
+
+      return () => clearTimeout(timer);
+    }
+
+    if (!user && ready) {
+      // UN-AUTHENTICATED FLOW:
+      // Move logo to top and reveal the onboarding content & Get Started CTA
+      const timer = setTimeout(() => {
+        setShowOnboarding(true);
+        Animated.parallel([
+          Animated.timing(moveAnim, {
+            toValue: 1,
+            duration: 800,
+            easing: Easing.bezier(0.22, 1, 0.36, 1),
+            useNativeDriver: true,
+          }),
+          Animated.timing(onboardingFade, {
+            toValue: 1,
+            duration: 500,
+            delay: 150,
+            useNativeDriver: true,
+          }),
+        ]).start();
+      }, wait);
+
+      return () => clearTimeout(timer);
+    }
+
+    return undefined;
+  }, [ready, user, forceUpdate, moveAnim, onboardingFade, navigation]);
 
   return (
-    <View className="flex-1 bg-white">
-      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+    <GradientBackground idPrefix="splash_" className="flex-1">
+      <StatusBar
+        barStyle="dark-content"
+        backgroundColor="transparent"
+        translucent
+      />
 
-      <Pressable onPress={startAnimation} className="z-10 w-full">
-        <Animated.View
-          className="overflow-hidden relative w-full"
-          style={{
-            backgroundColor: colours.primary,
-            height: heroHeight,
-            borderBottomLeftRadius: heroCorner,
-            borderBottomRightRadius: heroCorner,
-          }}>
-          <Animated.View
-            style={{
-              position: 'absolute',
-              top: logoTop,
-              left: 0,
-              right: 0,
-              alignItems: 'center',
-            }}>
-            <Animated.View
-              style={{
-                width: LOGO_W,
-                height: LOGO_H,
-                transform: [{ translateX: logoTranslateX }],
-              }}>
-              <BrandLogo size={LOGO_SIZE} />
-            </Animated.View>
-          </Animated.View>
-        </Animated.View>
-      </Pressable>
-
+      {/* =========================================================================
+          ANIMATED BRAND LOGO
+          Starts in the dead-center of the screen; upon loading finish, animates
+          to top-left matching the exact HomeScreen header coordinates.
+         ========================================================================= */}
       <Animated.View
-        className="flex-1 w-full max-w-md sm:max-w-lg md:max-w-xl self-center px-6 pt-8 pb-8 justify-between"
+        pointerEvents="none"
         style={{
-          opacity: contentOpacity,
-          transform: [{ translateY: contentY }],
-          paddingBottom: Math.max(insets.bottom, 28),
+          position: 'absolute',
+          left: targetLeft,
+          top: targetTop,
+          width: targetWidth,
+          height: targetHeight,
+          zIndex: 10,
+          opacity: fadeAnim,
+          transform: [
+            {
+              translateX: moveAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [deltaX, 0],
+              }),
+            },
+            {
+              translateY: moveAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [deltaY, 0],
+              }),
+            },
+            {
+              scale: moveAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1.25, 1],
+              }),
+            },
+          ],
         }}>
-        <View>
-          <Text
-            className="font-manrope-extrabold text-3xl sm:text-4xl text-gray-900 leading-tight mb-4"
-            adjustsFontSizeToFit
-            minimumFontScale={0.8}
-            numberOfLines={2}>
-            Timeless Silk Heritage,{'\n'}AI Virtual Try-On.
-          </Text>
-          <Text className="font-manrope-medium text-base text-gray-500 leading-relaxed pr-2">
-            Experience exquisite handcrafted Indian sarees and visualize your perfect drape with our AI studio.
-          </Text>
-        </View>
-
-        <TouchableOpacity
-          activeOpacity={0.88}
-          accessibilityRole="button"
-          accessibilityLabel="Get started"
-          onPress={() => navigation?.navigate?.('Login')}
-          className="w-full rounded-2xl h-14 sm:h-16 items-center justify-center shadow-lg"
-          style={{ backgroundColor: colours.primary }}>
-          <Text className="font-manrope-bold text-base sm:text-lg" style={{ color: colours.white }}>
-            Get started
-          </Text>
-        </TouchableOpacity>
+        <Image
+          source={require('../../assets/homeLogo.png')}
+          style={{
+            width: targetWidth,
+            height: targetHeight,
+          }}
+          resizeMode="contain"
+          accessibilityRole="image"
+          accessibilityLabel="Tripuraa Sangrahah Logo"
+        />
       </Animated.View>
-    </View>
+
+      {/* =========================================================================
+          UN-AUTHENTICATED ONBOARDING SECTION (Only shown if user is NOT logged in)
+         ========================================================================= */}
+      {showOnboarding && (
+        <Animated.View
+          style={{
+            flex: 1,
+            justifyContent: 'flex-end',
+            paddingHorizontal: 24,
+            paddingBottom: Math.max(insets.bottom, 28),
+            opacity: onboardingFade,
+          }}>
+          <View style={{ marginBottom: 26 }}>
+            <Text
+              style={{
+                fontFamily: 'Comfortaa-Bold',
+                fontSize: isSmallDevice ? 22 : 26,
+                color: '#161413',
+                lineHeight: isSmallDevice ? 30 : 35,
+                letterSpacing: -0.3,
+                marginBottom: 10,
+              }}>
+              Timeless Silk Heritage,{'\n'}AI Virtual Try-On.
+            </Text>
+            <Text
+              style={{
+                fontFamily: 'Comfortaa-Regular',
+                fontSize: 13,
+                color: '#6E675D',
+                lineHeight: 20,
+              }}>
+              Experience exquisite handcrafted Indian sarees and visualize your perfect drape with our AI studio.
+            </Text>
+          </View>
+
+          <TouchableOpacity
+            activeOpacity={0.88}
+            accessibilityRole="button"
+            accessibilityLabel="Get started"
+            onPress={() => {
+              if (!forceUpdate) navigation?.navigate?.('Login');
+            }}
+            style={{
+              backgroundColor: colours.saffron || '#BF5B21',
+              height: 52,
+              borderRadius: 16,
+              alignItems: 'center',
+              justifyContent: 'center',
+              shadowColor: colours.saffron || '#BF5B21',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.28,
+              shadowRadius: 6,
+              elevation: 4,
+            }}>
+            <Text
+              style={{
+                fontFamily: 'Manrope-Bold',
+                fontSize: 15.5,
+                color: '#FFFFFF',
+                letterSpacing: 0.3,
+              }}>
+              {forceUpdate ? 'Update required' : 'Get Started'}
+            </Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
+    </GradientBackground>
   );
 }
 

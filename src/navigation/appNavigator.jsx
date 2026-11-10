@@ -4,6 +4,7 @@ import SplashScreen from '../screens/public/splashScreen';
 import LoginScreen from '../screens/public/loginScreen';
 import RegistrationScreen from '../screens/public/registrationScreen';
 import OtpScreen from '../screens/public/otpScreen';
+import ResetPasswordScreen from '../screens/public/resetPasswordScreen';
 import FaqScreen from '../screens/private/accountTab/faqScreen';
 import TermsOfServiceScreen from '../screens/private/accountTab/termsOfServiceScreen';
 import UserPolicyScreen from '../screens/private/accountTab/userPolicyScreen';
@@ -20,7 +21,7 @@ const Stack = createNativeStackNavigator();
 function AppNavigator() {
   return (
     <Stack.Navigator
-      initialRouteName="MainTabs"
+      initialRouteName="Splash"
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: '#ffffff' },
@@ -49,9 +50,14 @@ function AppNavigator() {
         options={{ animation: 'slide_from_right' }}
       />
       <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
         name="MainTabs"
         component={TabNavigator}
-        options={{ animation: 'fade_from_bottom', animationDuration: 400 }}
+        options={{ animation: 'fade', animationDuration: 350 }}
       />
       <Stack.Screen
         name="Faq"
