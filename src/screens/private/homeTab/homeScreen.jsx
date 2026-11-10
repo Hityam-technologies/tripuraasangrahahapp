@@ -24,9 +24,11 @@ import SareeProductCard from '../../../components/sareeProductCard';
 import CategoryStoryBar from '../../../components/categoryStoryBar';
 import SearchBar from '../../../components/searchBar';
 import TryOnConfirmModal from '../../../components/tryOnConfirmModal';
+import { SectionLoader } from '../../../components/loadingSpinner';
 import colours from '../../../assets/colours';
 import { HERO_VIDEO } from '../../../assets/videos';
-import { APP_CATEGORIES, MASTER_COLLECTIONS, TOP_PICKS_PRODUCTS } from '../../../data';
+import { useCatalog } from '../../../context/catalogContext';
+import { useLoading } from '../../../context/loadingContext';
 
 /**
  * Build a source react-native-video can actually open.
@@ -255,23 +257,45 @@ function HomeScreen({ navigation }) {
     }
   };
 
-  // Direct Navigation on Category Tap to Search/Collections screen
-  const handleSelectCategory = useCallback(
-    (categoryId) => {
-      navigation?.navigate?.('CollectionsTab', {
-        category: categoryId,
-        timestamp: Date.now(),
+  // Uses built-in tab `shift` animation from TabNavigator
+  const goToCollections = useCallback(
+    (categoryId = 'all') => {
+      navigation?.navigate?.({
+        name: 'CollectionsTab',
+        params: {
+          category: categoryId,
+          timestamp: Date.now(),
+        },
+        merge: true,
       });
     },
     [navigation],
   );
 
+  const handleSelectCategory = useCallback(
+    (categoryId) => {
+      goToCollections(categoryId);
+    },
+    [goToCollections],
+  );
+
   // Top Picks: imported strictly from data file (renders any number of items given in data)
+  const { sarees, categories, loading, error, refresh } = useCatalog();
+  const { navigateWithLoading } = useLoading();
+
+  const openProduct = useCallback(
+    (prod) => {
+      navigateWithLoading(navigation, 'CardDetail', {
+        sareeId: prod.id,
+        product: prod,
+      });
+    },
+    [navigation, navigateWithLoading],
+  );
+
   const topPicksProducts = useMemo(() => {
-    const list =
-      Array.isArray(TOP_PICKS_PRODUCTS) && TOP_PICKS_PRODUCTS.length > 0
-        ? TOP_PICKS_PRODUCTS
-        : MASTER_COLLECTIONS;
+    const featured = sarees.filter((item) => item.isFeatured);
+    const list = featured.length ? featured : sarees;
 
     if (!searchQuery.trim()) {
       return list;
@@ -286,7 +310,7 @@ function HomeScreen({ navigation }) {
         (item.fabric && item.fabric.toLowerCase().includes(q))
       );
     });
-  }, [searchQuery]);
+  }, [searchQuery, sarees]);
 
   const filteredProducts = topPicksProducts;
 
@@ -491,12 +515,7 @@ function HomeScreen({ navigation }) {
 
               <TouchableOpacity
                 activeOpacity={0.7}
-                onPress={() =>
-                  navigation?.navigate?.('CollectionsTab', {
-                    category: 'all',
-                    timestamp: Date.now(),
-                  })
-                }
+                onPress={() => goToCollections('all')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text
                   style={{
@@ -512,7 +531,13 @@ function HomeScreen({ navigation }) {
             {/* =====================================================================
               CATEGORY STORY BAR (Tap category -> navigates directly to Search/Collections)
              ===================================================================== */}
+            {error && !loading ? (
+              <Text className="font-manrope text-sm text-blue-600 mb-3" onPress={refresh}>
+                {`${error} Tap to retry.`}
+              </Text>
+            ) : null}
             <CategoryStoryBar
+              categories={categories}
               activeCategory="all"
               onSelectCategory={handleSelectCategory}
               style={{
@@ -549,6 +574,9 @@ function HomeScreen({ navigation }) {
               RESPONSIVE HORIZONTAL SAREE CARDS (Fixed Curated 4 Items)
               Specially designed for landscape saree photos with color-adaptive styling
              ===================================================================== */}
+            {loading && sarees.length === 0 ? (
+              <SectionLoader message="Loading collection..." minHeight={220} />
+            ) : (
             <View
               style={{
                 flexDirection: 'row',
@@ -562,12 +590,7 @@ function HomeScreen({ navigation }) {
                   product={item}
                   cardWidth={cardWidth}
                   isWishlisted={!!wishlist[item.id]}
-                  onPress={(prod) =>
-                    navigation?.navigate?.('CardDetail', {
-                      product: prod,
-                      sareeId: prod.id,
-                    })
-                  }
+                  onPress={openProduct}
                   onTryOn={(prod) => setTryOnConfirmSaree(prod)}
                   onToggleWishlist={toggleWishlist}
                   style={{
@@ -576,9 +599,10 @@ function HomeScreen({ navigation }) {
                 />
               ))}
             </View>
+            )}
 
             {/* Empty Search State */}
-            {filteredProducts.length === 0 && (
+            {!loading && filteredProducts.length === 0 && (
               <View
                 style={{
                   alignItems: 'center',
@@ -640,7 +664,7 @@ function HomeScreen({ navigation }) {
         onConfirm={() => {
           const target = tryOnConfirmSaree;
           setTryOnConfirmSaree(null);
-          navigation?.navigate?.('TryOnTab', { product: target });
+          navigateWithLoading(navigation, 'TryOnTab', { product: target });
         }}
         onCancel={() => setTryOnConfirmSaree(null)}
       />

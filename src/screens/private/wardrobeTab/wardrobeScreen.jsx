@@ -22,7 +22,9 @@ import TryOnConfirmModal from '../../../components/tryOnConfirmModal';
 import { useWardrobe } from '../../../context/wardrobeContext';
 import { useTryOn } from '../../../context/tryOnContext';
 import { useTabBar } from '../../../context/tabBarContext';
-import { getSareeById, MASTER_COLLECTIONS } from '../../../data';
+import { useCatalog } from '../../../context/catalogContext';
+import { useLoading } from '../../../context/loadingContext';
+import { SectionLoader } from '../../../components/loadingSpinner';
 
 /**
  * WardrobeScreen
@@ -84,8 +86,21 @@ function WardrobeScreen({ navigation }) {
   const { wishlist, wishlistItems, toggleWishlist, removeFromWishlist } =
     useWardrobe();
   const { tryOnLooks, removeTryOnLook, userPhoto } = useTryOn();
+  const { getSaree, loading: catalogLoading } = useCatalog();
   const { hideTabBar, showTabBar } = useTabBar();
+  const { navigateWithLoading } = useLoading();
   const lastScrollY = useRef(0);
+
+  const openProduct = (prod) => {
+    navigateWithLoading(navigation, 'CardDetail', {
+      sareeId: prod?.id,
+      product: prod,
+    });
+  };
+
+  const openTryOn = (params) => {
+    navigateWithLoading(navigation, 'TryOnTab', params);
+  };
 
   // Restore tab bar on screen focus
   useEffect(() => {
@@ -290,7 +305,9 @@ function WardrobeScreen({ navigation }) {
            ===================================================================== */}
         {wardrobeSection === 'saved' && (
           <>
-            {wishlistItems.length > 0 ? (
+            {catalogLoading && wishlistItems.length === 0 ? (
+              <SectionLoader message="Loading wardrobe..." minHeight={220} />
+            ) : wishlistItems.length > 0 ? (
               <View
                 style={{
                   paddingHorizontal: hPadding,
@@ -308,12 +325,7 @@ function WardrobeScreen({ navigation }) {
                     isWishlisted={!!wishlist[item.id]}
                     showRemoveButton={true}
                     onRemoveFromWishlist={removeFromWishlist}
-                    onPress={(prod) => {
-                      navigation?.navigate?.('CardDetail', {
-                        product: prod,
-                        sareeId: prod.id,
-                      });
-                    }}
+                    onPress={openProduct}
                     onTryOn={(prod) => {
                       setTryOnConfirmSaree(prod);
                     }}
@@ -426,16 +438,14 @@ function WardrobeScreen({ navigation }) {
                   rowGap: isSmallDevice ? 12 : 14,
                 }}>
                 {tryOnLooks.map((look) => {
-                  const fullSaree =
-                    getSareeById(look.sareeId) ||
-                    MASTER_COLLECTIONS.find((s) => s.id === look.sareeId) || {
-                      id: look.sareeId,
-                      title: look.sareeTitle,
-                      price: look.sareePrice,
-                      image: look.flatImage,
-                      tryOnImage: look.drapeImage,
-                      weave: look.weave,
-                    };
+                  const fullSaree = getSaree(look.sareeId) || {
+                    id: look.sareeId,
+                    title: look.sareeTitle || '-',
+                    price: look.sareePrice || '-',
+                    image: look.flatImage,
+                    tryOnImage: look.drapeImage,
+                    weave: look.weave || '-',
+                  };
 
                   return (
                     <View
@@ -458,7 +468,7 @@ function WardrobeScreen({ navigation }) {
                       <TouchableOpacity
                         activeOpacity={0.92}
                         onPress={() => {
-                          navigation?.navigate?.('TryOnTab', {
+                          openTryOn({
                             product: fullSaree,
                             sareeId: look.sareeId,
                           });
@@ -469,11 +479,15 @@ function WardrobeScreen({ navigation }) {
                           backgroundColor: '#F8F6F2',
                           position: 'relative',
                         }}>
-                        <Image
-                          source={look.drapeImage || userPhoto}
-                          style={{ width: '100%', height: '100%' }}
-                          resizeMode="cover"
-                        />
+                        {look.drapeImage || userPhoto ? (
+                          <Image
+                            source={look.drapeImage || userPhoto}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={{ textAlign: 'center', marginTop: 40, color: '#A59B8F' }}>-</Text>
+                        )}
                       </TouchableOpacity>
 
                       {/* Card Actions: Studio & Details */}
@@ -482,7 +496,7 @@ function WardrobeScreen({ navigation }) {
                         <TouchableOpacity
                           activeOpacity={0.85}
                           onPress={() => {
-                            navigation?.navigate?.('TryOnTab', {
+                            openTryOn({
                               product: fullSaree,
                               sareeId: look.sareeId,
                             });
@@ -516,10 +530,7 @@ function WardrobeScreen({ navigation }) {
                         <TouchableOpacity
                           activeOpacity={0.85}
                           onPress={() => {
-                            navigation?.navigate?.('CardDetail', {
-                              product: fullSaree,
-                              sareeId: look.sareeId,
-                            });
+                            if (fullSaree) openProduct(fullSaree);
                           }}
                           style={{
                             flex: 1,
@@ -696,14 +707,18 @@ function WardrobeScreen({ navigation }) {
                   backgroundColor: '#F8F6F2',
                   marginBottom: 14,
                 }}>
-                <Image
-                  source={
-                    selectedProduct.images?.[quickViewImageIndex] ||
-                    selectedProduct.image
-                  }
-                  style={{ width: '100%', height: '100%' }}
-                  resizeMode="cover"
-                />
+                {selectedProduct.images?.[quickViewImageIndex] || selectedProduct.image ? (
+                  <Image
+                    source={
+                      selectedProduct.images?.[quickViewImageIndex] ||
+                      selectedProduct.image
+                    }
+                    style={{ width: '100%', height: '100%' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={{ textAlign: 'center', marginTop: 48, color: '#A59B8F' }}>-</Text>
+                )}
               </View>
 
               {/* Saree Details */}
@@ -717,62 +732,17 @@ function WardrobeScreen({ navigation }) {
                   }}>
                   {selectedProduct.title}
                 </Text>
-                <Text
-                  style={{
-                    fontFamily: 'Manrope-Bold',
-                    fontSize: 16,
-                    color: colours.saffron || '#BF5B21',
-                    marginBottom: 10,
-                  }}>
-                  {selectedProduct.price}
-                </Text>
-
-                {/* Fabric & Origin tags */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    gap: 6,
-                    marginBottom: 12,
-                  }}>
-                  <View
+                {selectedProduct.productCode ? (
+                  <Text
                     style={{
-                      backgroundColor: '#F7F5F0',
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#EDE9E2',
+                      fontFamily: 'Manrope-Bold',
+                      fontSize: 13,
+                      color: colours.saffron || '#BF5B21',
+                      marginBottom: 10,
                     }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 10.5,
-                        color: '#5E574E',
-                      }}>
-                      Fabric: {selectedProduct.fabric}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      backgroundColor: '#F7F5F0',
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#EDE9E2',
-                    }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 10.5,
-                        color: '#5E574E',
-                      }}>
-                      Origin: {selectedProduct.origin}
-                    </Text>
-                  </View>
-                </View>
+                    {selectedProduct.productCode}
+                  </Text>
+                ) : null}
 
                 {/* Description */}
                 <Text
@@ -869,7 +839,7 @@ function WardrobeScreen({ navigation }) {
         onConfirm={() => {
           const target = tryOnConfirmSaree;
           setTryOnConfirmSaree(null);
-          navigation?.navigate?.('TryOnTab', {
+          openTryOn({
             product: target,
             sareeId: target.id,
           });

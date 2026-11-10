@@ -1,10 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   BackHandler,
   Dimensions,
   Easing,
   Image,
+  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -22,9 +23,13 @@ import { useFocusEffect } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import Svg, { Path } from 'react-native-svg';
 import colours from '../../assets/colours';
+import { dash } from '../../lib/text';
 import TryOnConfirmModal from '../../components/tryOnConfirmModal';
+import { ButtonSpinner, SectionLoader } from '../../components/loadingSpinner';
 import { useWishlist } from '../../context/wishlistContext';
-import { getSareeById, MASTER_COLLECTIONS } from '../../data';
+import { useCatalog } from '../../context/catalogContext';
+import { apiCall } from '../../api/client';
+import { presentSaree } from '../../api/media';
 
 /**
  * TryOnSparkleIcon Component
@@ -62,6 +67,33 @@ function TryOnSparkleIcon({ size = 16, color = '#FFFFFF' }) {
       />
     </Svg>
   );
+}
+
+function formatPrice(val) {
+  if (val == null || val === '') return '';
+  if (typeof val === 'number') {
+    return `₹${val.toLocaleString('en-IN')}`;
+  }
+  const s = String(val).trim();
+  if (s.startsWith('₹') || s.startsWith('Rs')) return s;
+  const num = Number(s.replace(/[^0-9.]/g, ''));
+  if (!Number.isNaN(num) && num > 0) {
+    return `₹${num.toLocaleString('en-IN')}`;
+  }
+  return s ? `₹${s}` : '';
+}
+
+function calculateMrp(priceVal, mrpVal) {
+  if (mrpVal) return formatPrice(mrpVal);
+  if (!priceVal) return '';
+  const num = typeof priceVal === 'number'
+    ? priceVal
+    : Number(String(priceVal).replace(/[^0-9.]/g, ''));
+  if (!Number.isNaN(num) && num > 0) {
+    const calculated = Math.round(num * 1.25);
+    return `₹${calculated.toLocaleString('en-IN')}`;
+  }
+  return '';
 }
 
 /**
@@ -302,11 +334,21 @@ function CardDetailScreen({ navigation, route }) {
   const screenWidth = windowWidth || Dimensions.get('window').width || 390;
   const screenHeight = windowHeight || Dimensions.get('window').height || 844;
 
-  // Retrieve current product or fallback
-  const currentProduct =
-    route?.params?.product ||
-    getSareeById(route?.params?.sareeId) ||
-    MASTER_COLLECTIONS[0];
+  const { sarees, getSaree, support } = useCatalog();
+
+  const passedProduct = route?.params?.product;
+  const sareeId = route?.params?.sareeId || passedProduct?.id || '';
+
+  const initialFallback =
+    passedProduct ||
+    (sareeId ? getSaree(sareeId) || (Array.isArray(sarees) ? sarees.find((s) => s.id === sareeId) : null) : null);
+
+  const [currentProduct, setCurrentProduct] = useState(() =>
+    initialFallback ? presentSaree(initialFallback) : null,
+  );
+  const [detailLoading, setDetailLoading] = useState(() => !initialFallback && !!sareeId);
+  const [detailError, setDetailError] = useState('');
+  const [fetchKey, setFetchKey] = useState(0);
 
   const [activeImageIdx, setActiveImageIdx] = useState(0);
   const [isFullScreenModal, setIsFullScreenModal] = useState(false);
@@ -319,14 +361,76 @@ function CardDetailScreen({ navigation, route }) {
 
   // Global Wishlist
   const { wishlist, toggleWishlist } = useWishlist();
-  const isWishlisted = !!wishlist[currentProduct.id];
+  const isWishlisted = !!(currentProduct?.id && wishlist[currentProduct.id]);
 
   const imageList =
-    Array.isArray(currentProduct.images) && currentProduct.images.length > 0
+    Array.isArray(currentProduct?.images) && currentProduct.images.length > 0
       ? currentProduct.images
-      : currentProduct.image
+      : currentProduct?.image
       ? [currentProduct.image]
       : [];
+
+  const craftSpecs = useMemo(() => {
+    if (!currentProduct) return [];
+    const list = [
+      ['Weave', currentProduct.weave],
+      ['Fabric', currentProduct.fabric],
+      ['Zari', currentProduct.zari],
+      ['Origin', currentProduct.origin],
+      ['Body', currentProduct.body],
+      ['Border', currentProduct.border],
+      ['Pallu', currentProduct.pallu],
+      ['Blouse', currentProduct.blouse],
+    ];
+    return list.filter(([, val]) => val && String(val).trim());
+  }, [currentProduct]);
+
+  // Fetch full saree details only when this detail screen opens
+  useEffect(() => {
+    let live = true;
+    if (!sareeId && !initialFallback) {
+      setDetailLoading(false);
+      setDetailError('This saree could not be found.');
+      return undefined;
+    }
+
+    if (!currentProduct) {
+      setDetailLoading(true);
+    }
+    setDetailError('');
+
+    if (sareeId) {
+      apiCall('get', `/sarees/${encodeURIComponent(sareeId)}`)
+        .then((result) => {
+          if (!live) return;
+          const row =
+            result?.data?.saree ||
+            result?.data?.item ||
+            (result?.data && !Array.isArray(result.data.items) ? result.data : null);
+          if (result.success && row) {
+            setCurrentProduct(presentSaree(row));
+            setDetailError('');
+          } else if (!currentProduct) {
+            setDetailError(
+              result.error?.message || 'Saree details could not be loaded.',
+            );
+          }
+          setDetailLoading(false);
+        })
+        .catch(() => {
+          if (live && !currentProduct) {
+            setDetailError('Saree details could not be loaded.');
+            setDetailLoading(false);
+          }
+        });
+    } else {
+      setDetailLoading(false);
+    }
+
+    return () => {
+      live = false;
+    };
+  }, [sareeId, fetchKey]);
 
   // 3:2 landscape aspect ratio matching authentic 1600x1066 saree photos
   // sheetCard has paddingHorizontal: 20 -> card width is screenWidth - 40
@@ -478,9 +582,10 @@ function CardDetailScreen({ navigation, route }) {
   ).current;
 
   const handleShare = async () => {
+    if (!currentProduct) return;
     try {
       await Share.share({
-        message: `Discover ${currentProduct.title} from Tripuraa Sangrahah - ${currentProduct.price}. Handcrafted pure silk saree.`,
+        message: `Discover ${currentProduct.title} from Tripuraa Sangrahah${currentProduct.productCode ? ` (${currentProduct.productCode})` : ''}.`,
       });
     } catch {
       // silent handle
@@ -488,7 +593,12 @@ function CardDetailScreen({ navigation, route }) {
   };
 
   const handleTryOn = () => {
+    if (!currentProduct) return;
     setShowTryOnConfirm(true);
+  };
+
+  const handleRetryFetch = () => {
+    setFetchKey((key) => key + 1);
   };
 
   return (
@@ -517,13 +627,12 @@ function CardDetailScreen({ navigation, route }) {
         style={[
           styles.sheetCard,
           {
-            maxHeight: '90%',
-            paddingBottom: Math.max(insets.bottom, 22),
+            height: Math.round(screenHeight * 0.88),
+            paddingBottom: Math.max(insets.bottom, 12),
             opacity: sheetOpacity,
             transform: [{ translateY: sheetTranslateY }],
           },
-        ]}
-        onStartShouldSetResponder={() => true}>
+        ]}>
         {/* HEADER AREA: Centered Drag Handle + Top-Right Close Button */}
         <View style={styles.handleArea}>
           {/* Centered Drag Handle Bar */}
@@ -543,11 +652,43 @@ function CardDetailScreen({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* SCROLLABLE SHEET BODY CONTENT */}
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={styles.scrollContent}>
+        {detailLoading ? (
+            <SectionLoader message="Loading saree details..." minHeight={280} />
+          ) : detailError || !currentProduct ? (
+            <View style={{ alignItems: 'center', paddingVertical: 48, paddingHorizontal: 20 }}>
+              <Text
+                style={{
+                  fontFamily: 'Manrope-Medium',
+                  fontSize: 13,
+                  color: '#70685E',
+                  textAlign: 'center',
+                  marginBottom: 14,
+                }}>
+                {detailError || 'Saree details could not be loaded.'}
+              </Text>
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={handleRetryFetch}
+                style={{
+                  paddingHorizontal: 18,
+                  paddingVertical: 10,
+                  borderRadius: 20,
+                  backgroundColor: colours.primary,
+                  minWidth: 120,
+                  alignItems: 'center',
+                }}>
+                <Text
+                  style={{
+                    fontFamily: 'Manrope-Bold',
+                    fontSize: 13,
+                    color: colours.white,
+                  }}>
+                  Retry
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+          <>
           {/* ===================================================================
               SAREE HORIZONTAL PHOTO CAROUSEL (3:2 UNcropped LUXURY CARD)
               Pure natural finger swiping - NO extra buttons!
@@ -575,7 +716,11 @@ function CardDetailScreen({ navigation, route }) {
                 }
               }}
               style={{ width: imageCardWidth, height: imageCardHeight }}>
-              {imageList.map((img, idx) => (
+              {imageList.length === 0 ? (
+                <View style={{ width: imageCardWidth, height: imageCardHeight, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={styles.productTitle}>-</Text>
+                </View>
+              ) : imageList.map((img, idx) => (
                 <TouchableOpacity
                   key={idx}
                   activeOpacity={0.95}
@@ -618,34 +763,110 @@ function CardDetailScreen({ navigation, route }) {
             </TouchableOpacity>
           </View>
 
-          {/* ===================================================================
-              PRODUCT INFORMATION (CLEAN, SIMPLE, EASY)
-             =================================================================== */}
+          {/* Details scroll. The photo above stays fixed. */}
+          <ScrollView
+            style={styles.detailScroll}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+            nestedScrollEnabled
+            contentContainerStyle={styles.scrollContent}>
           <View style={styles.infoSection}>
-            {/* Title & Price Row */}
-            <View style={styles.titlePriceRow}>
-              <Text numberOfLines={2} style={styles.productTitle}>
-                {currentProduct.title}
+            {/* 1. Provenance Tag Line */}
+            <Text style={styles.provenanceTag} numberOfLines={1}>
+              {[
+                currentProduct.brand || 'TRIPURAA HERITAGE',
+                currentProduct.weave || 'HANDLOOM SILK',
+                currentProduct.origin,
+              ]
+                .filter(Boolean)
+                .join(' • ')
+                .toUpperCase()}
+            </Text>
+
+            {/* 2. Product Title & Clean Code Badge */}
+            <View style={styles.titleCodeRow}>
+              <Text style={styles.productTitle}>
+                {dash(currentProduct.title)}
               </Text>
-              <Text style={styles.priceValue}>{currentProduct.price}</Text>
+              {currentProduct.productCode ? (
+                <View style={styles.cleanCodeBadge}>
+                  <Text style={styles.cleanCodeBadgeText}>
+                    {currentProduct.productCode}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
-            {/* MRP & In Stock Status */}
-            <View style={styles.stockRow}>
-              {currentProduct.mrp && (
-                <Text style={styles.mrpText}>MRP: {currentProduct.mrp}</Text>
-              )}
+            {/* 3. Price, Strikethrough MRP & In-Stock Status Badge */}
+            <View style={styles.priceStockRow}>
+              <View style={styles.priceCluster}>
+                <Text style={styles.priceValue}>
+                  {formatPrice(currentProduct.price || currentProduct.numericPrice)}
+                </Text>
+                {calculateMrp(
+                  currentProduct.price || currentProduct.numericPrice,
+                  currentProduct.mrp,
+                ) ? (
+                  <Text style={styles.mrpText}>
+                    {calculateMrp(
+                      currentProduct.price || currentProduct.numericPrice,
+                      currentProduct.mrp,
+                    )}
+                  </Text>
+                ) : null}
+              </View>
+
               <View style={styles.inStockBadge}>
                 <View style={styles.inStockDot} />
                 <Text style={styles.inStockText}>In Stock</Text>
               </View>
             </View>
 
-            {/* Clean Description */}
-            <Text style={styles.descriptionText}>
-              {currentProduct.description ||
-                'Authentic temple border Kanchipuram handwoven on traditional pit looms with pure gold and silver dipped tested zari and sacred korvai motifs.'}
-            </Text>
+            {/* 4. Description */}
+            {currentProduct.description ? (
+              <Text style={styles.descriptionText}>
+                {dash(currentProduct.description)}
+              </Text>
+            ) : null}
+
+            {/* 5. Clean Atelier Craft Specifications Card */}
+            {craftSpecs.length > 0 ? (
+              <View style={styles.specCard}>
+                <View style={styles.specHeaderRow}>
+                  <Icon
+                    name="ribbon-outline"
+                    size={13}
+                    color={colours.saffron || '#BF5B21'}
+                  />
+                  <Text style={styles.specHeaderTitle}>CRAFT & SPECIFICATIONS</Text>
+                </View>
+                <View style={styles.specGrid}>
+                  {craftSpecs.map(([label, value]) => (
+                    <View key={label} style={styles.specItemRow}>
+                      <Text style={styles.specLabel}>{label}</Text>
+                      <Text style={styles.specValue}>{value}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            ) : null}
+
+            {/* 6. WhatsApp Concierge Order Button */}
+            {support?.whatsappPhone ? (
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={() => {
+                  const digits = String(support.whatsappPhone).replace(/[^0-9]/g, '');
+                  const text = encodeURIComponent(
+                    `Hello Tripuraa Sangrahah, I would like to order "${currentProduct.title || 'this saree'}"${currentProduct.productCode ? ` (Code: ${currentProduct.productCode})` : ''}.`,
+                  );
+                  Linking.openURL(`https://wa.me/${digits}?text=${text}`).catch(() => null);
+                }}
+                style={styles.orderBtn}>
+                <Icon name="logo-whatsapp" size={17} color="#25D366" />
+                <Text style={styles.orderBtnText}>Inquire & Order via WhatsApp</Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* ===================================================================
                 NATURAL ACTION BUTTONS ROW (NO FIXED BOTTOM BOX!)
@@ -687,7 +908,9 @@ function CardDetailScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
           </View>
-        </ScrollView>
+          </ScrollView>
+          </>
+          )}
       </Animated.View>
 
       {/* =========================================================================
@@ -710,7 +933,7 @@ function CardDetailScreen({ navigation, route }) {
             ]}>
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text numberOfLines={1} style={styles.modalTitle}>
-                {currentProduct.title}
+                {currentProduct?.title || 'Saree'}
               </Text>
               <Text style={styles.modalSubtitle}>
                 Photo {activeImageIdx + 1} of {imageList.length} • Authentic Handloom Weave
@@ -800,9 +1023,10 @@ function CardDetailScreen({ navigation, route }) {
 
       {/* Try-On Confirmation Modal */}
       <TryOnConfirmModal
-        visible={showTryOnConfirm}
+        visible={showTryOnConfirm && !!currentProduct}
         saree={currentProduct}
         onConfirm={() => {
+          if (!currentProduct?.id) return;
           setShowTryOnConfirm(false);
           navigation?.navigate?.('TryOnTab', {
             product: currentProduct,
@@ -857,6 +1081,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 12,
     elevation: 24,
+    overflow: 'hidden',
+  },
+  detailScroll: {
+    flex: 1,
   },
   handleArea: {
     width: '100%',
@@ -946,44 +1174,79 @@ const styles = StyleSheet.create({
   infoSection: {
     paddingTop: 2,
   },
-  titlePriceRow: {
+  provenanceTag: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 11,
+    letterSpacing: 1.4,
+    color: colours.saffron || '#BF5B21',
+    marginBottom: 6,
+  },
+  titleCodeRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    gap: 10,
+    marginBottom: 8,
   },
   productTitle: {
     flex: 1,
     fontFamily: 'Comfortaa-Bold',
-    fontSize: 16.5,
+    fontSize: 18,
     color: '#161413',
-    lineHeight: 22,
-    marginRight: 12,
+    lineHeight: 24,
+    letterSpacing: -0.3,
+  },
+  cleanCodeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3.5,
+    backgroundColor: '#F5EFE6',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E8DFD1',
+    alignSelf: 'flex-start',
+    marginTop: 2,
+  },
+  cleanCodeBadgeText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 10.5,
+    color: '#70685E',
+    letterSpacing: 0.5,
+  },
+  priceStockRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F2ECE4',
+  },
+  priceCluster: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
   },
   priceValue: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 20,
+    fontSize: 22,
     color: '#161413',
-  },
-  stockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    marginBottom: 8,
+    letterSpacing: -0.4,
   },
   mrpText: {
     fontFamily: 'Manrope-Medium',
-    fontSize: 12,
-    color: '#9E9AA6',
+    fontSize: 13,
+    color: '#A0988E',
     textDecorationLine: 'line-through',
   },
   inStockBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#EAF7EE',
-    paddingHorizontal: 7,
-    paddingVertical: 2.5,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#D4EED8',
   },
   inStockDot: {
     width: 5,
@@ -994,15 +1257,81 @@ const styles = StyleSheet.create({
   },
   inStockText: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 10,
+    fontSize: 10.5,
     color: '#2E7D32',
+    letterSpacing: 0.2,
   },
   descriptionText: {
     fontFamily: 'Comfortaa-Regular',
-    fontSize: 12,
-    color: '#6E675D',
-    lineHeight: 18,
-    marginBottom: 14,
+    fontSize: 12.5,
+    color: '#5C554B',
+    lineHeight: 19,
+    marginBottom: 16,
+  },
+  specCard: {
+    backgroundColor: '#FAF7F2',
+    borderWidth: 1,
+    borderColor: '#EFE8DE',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  specHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ECE4D8',
+  },
+  specHeaderTitle: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 10.5,
+    letterSpacing: 1.2,
+    color: '#8A8175',
+  },
+  specGrid: {
+    gap: 7,
+  },
+  specItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  specLabel: {
+    fontFamily: 'Comfortaa-Bold',
+    fontSize: 11.5,
+    color: '#70685E',
+    minWidth: 64,
+  },
+  specValue: {
+    flex: 1,
+    textAlign: 'right',
+    fontFamily: 'Comfortaa-Regular',
+    fontSize: 11.5,
+    color: '#161413',
+    lineHeight: 16,
+  },
+  orderBtn: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#F5EFE6',
+    borderWidth: 1,
+    borderColor: '#E6DDD0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  orderBtnText: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 13,
+    color: '#161413',
+    letterSpacing: 0.2,
   },
   actionsRow: {
     flexDirection: 'row',

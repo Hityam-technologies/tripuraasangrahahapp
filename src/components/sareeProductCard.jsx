@@ -384,11 +384,15 @@ function SareeProductCard({
             activeOpacity={0.96}
             onPress={() => onPress?.(product)}
             style={StyleSheet.absoluteFillObject}>
-            <Image
-              source={imageList[0] || product.image}
-              style={StyleSheet.absoluteFillObject}
-              resizeMode="cover"
-            />
+            {imageList[0] ? (
+              <Image
+                source={imageList[0]}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={{ textAlign: 'center', marginTop: 48, color: '#A59B8F' }}>-</Text>
+            )}
           </TouchableOpacity>
         )}
 
@@ -510,7 +514,7 @@ function SareeProductCard({
         </TouchableOpacity>
 
         {/* Fabric & Zari Provenance - Comfortaa-Medium */}
-        {(product.fabric || product.zari || product.weave) && (
+        {(product.fabric || product.zari || product.weave || product.collectionLine || product.productCode) && (
           <Text
             numberOfLines={1}
             style={{
@@ -523,7 +527,7 @@ function SareeProductCard({
             }}>
             {[product.fabric || product.weave, product.zari]
               .filter(Boolean)
-              .join('  •  ')}
+              .join('  •  ') || product.collectionLine || product.productCode}
           </Text>
         )}
 
@@ -543,7 +547,7 @@ function SareeProductCard({
               color: '#161413',
               letterSpacing: -0.3,
             }}>
-            {product.price}
+            {product.price || ''}
           </Text>
 
           {/* Animated Saffron "Try On" CTA Pill */}

@@ -21,7 +21,7 @@ import GradientBackground from '../../../components/gradientBackground';
 import colours from '../../../assets/colours';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useTryOn } from '../../../context/tryOnContext';
-import { MASTER_COLLECTIONS, getSareeById } from '../../../data';
+import { useCatalog } from '../../../context/catalogContext';
 import TryOnPhotoModal from '../../../components/tryOnPhotoModal';
 
 /**
@@ -46,18 +46,14 @@ function TryOnScreen({ navigation, route }) {
   );
 
   const { hideTabBar, showTabBar } = useTabBar();
-  const { userPhoto, saveTryOnLook, removeTryOnLook, isLookSaved } = useTryOn();
+  const { getSaree, sarees } = useCatalog();
+  const { userPhoto, saveTryOnLook, removeTryOnLook, isLookSaved, generateDrape, drapeStatus } = useTryOn();
+  const alive = useRef(true);
+  const [drapeOverride, setDrapeOverride] = useState(null);
 
-  // Resolve target saree from navigation parameters
-  const [selectedSaree, setSelectedSaree] = useState(() => {
-    const targetProduct = route?.params?.product;
-    const targetId = targetProduct?.id || route?.params?.sareeId;
-    if (targetId) {
-      const found = getSareeById(targetId) || MASTER_COLLECTIONS.find((s) => s.id === targetId);
-      if (found) return found;
-    }
-    return targetProduct || MASTER_COLLECTIONS[0];
-  });
+  const [selectedSaree, setSelectedSaree] = useState(
+    () => route?.params?.product || null,
+  );
 
   // View Mode: 'drape' (AI Virtual Fitting) or 'flat' (Flat Handloom photo)
   const [viewMode, setViewMode] = useState('drape');
@@ -72,7 +68,7 @@ function TryOnScreen({ navigation, route }) {
     const targetProduct = route?.params?.product;
     const targetId = targetProduct?.id || route?.params?.sareeId;
     if (targetId) {
-      const found = getSareeById(targetId) || MASTER_COLLECTIONS.find((s) => s.id === targetId);
+      const found = getSaree(targetId) || sarees.find((s) => s.id === targetId);
       if (found) {
         setSelectedSaree(found);
         setViewMode('drape');
@@ -83,7 +79,18 @@ function TryOnScreen({ navigation, route }) {
         triggerDrapeScan();
       }
     }
-  }, [route?.params]);
+  }, [route?.params, getSaree, sarees]);
+
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSaree && sarees[0]) setSelectedSaree(sarees[0]);
+  }, [selectedSaree, sarees]);
 
   // Hide tab bar on entry, restore on exit, handle hardware back
   useFocusEffect(
@@ -123,6 +130,21 @@ function TryOnScreen({ navigation, route }) {
       setIsScanning(false);
     });
   }, [scanAnim]);
+
+  useEffect(() => {
+    if (viewMode !== 'drape' || !selectedSaree?.id) return undefined;
+    let active = true;
+    setDrapeOverride(null);
+    setIsScanning(true);
+    generateDrape(selectedSaree.id, () => active && alive.current).then((source) => {
+      if (!active || !alive.current) return;
+      if (source) setDrapeOverride(source);
+      setIsScanning(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [viewMode, selectedSaree?.id, generateDrape]);
 
   // Trigger scan when changing modes
   const handleToggleViewMode = useCallback(
@@ -184,7 +206,7 @@ function TryOnScreen({ navigation, route }) {
   // Active image to display
   const currentImageSource =
     viewMode === 'drape'
-      ? selectedSaree?.tryOnImage || selectedSaree?.image
+      ? drapeOverride || selectedSaree?.tryOnImage || selectedSaree?.image
       : selectedSaree?.image;
 
   const headerButtonSize = isSmallDevice ? 40 : 44;
@@ -238,10 +260,14 @@ function TryOnScreen({ navigation, route }) {
          ========================================================================= */}
       <View style={styles.userPhotoRow}>
         <View style={styles.photoLeft}>
-          <Image
-            source={userPhoto}
-            style={styles.avatarImage}
-          />
+          {userPhoto ? (
+            <Image
+              source={userPhoto}
+              style={styles.avatarImage}
+            />
+          ) : (
+            <Text style={styles.photoLabel}>-</Text>
+          )}
           <Text style={styles.photoLabel}>Your Drape Photo</Text>
         </View>
 
@@ -258,6 +284,9 @@ function TryOnScreen({ navigation, route }) {
           <Text style={styles.changeButtonText}>Change</Text>
         </TouchableOpacity>
       </View>
+      {drapeStatus ? (
+        <Text style={styles.photoLabel}>{drapeStatus}</Text>
+      ) : null}
 
       {/* =========================================================================
           3. MAIN SHOWCASE CANVAS: FULL SCREEN LUXURY DRAPE STAGE
@@ -265,11 +294,15 @@ function TryOnScreen({ navigation, route }) {
       <View style={styles.canvasContainer}>
         <View style={styles.canvasCard}>
           <Animated.View style={[{ flex: 1, width: '100%', height: '100%' }, { opacity: fadeAnim }]}>
-            <Image
-              source={currentImageSource}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode={viewMode === 'drape' ? 'cover' : 'contain'}
-            />
+            {currentImageSource ? (
+              <Image
+                source={currentImageSource}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode={viewMode === 'drape' ? 'cover' : 'contain'}
+              />
+            ) : (
+              <Text style={styles.photoLabel}>-</Text>
+            )}
           </Animated.View>
 
           {/* AI Scan Beam Effect */}
@@ -365,7 +398,7 @@ function TryOnScreen({ navigation, route }) {
           <View style={styles.sareeTextLeft}>
             {(selectedSaree.brand || selectedSaree.weave) && (
               <Text style={styles.sareeProvenance} numberOfLines={1}>
-                {[selectedSaree.brand || 'Tripuraa Heritage', selectedSaree.weave].filter(Boolean).join(' • ')}
+                {[selectedSaree?.brand, selectedSaree?.weave].filter(Boolean).join(' • ') || '-'}
               </Text>
             )}
             <Text style={styles.sareeTitle} numberOfLines={1}>
@@ -378,8 +411,8 @@ function TryOnScreen({ navigation, route }) {
             activeOpacity={0.88}
             onPress={() => {
               navigation?.navigate?.('CardDetail', {
-                product: selectedSaree,
                 sareeId: selectedSaree.id,
+                product: selectedSaree,
               });
             }}
             style={styles.viewDetailsButton}>

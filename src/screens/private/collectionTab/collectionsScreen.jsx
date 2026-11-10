@@ -25,14 +25,12 @@ import SareeProductCard from '../../../components/sareeProductCard';
 import CategoryStoryBar from '../../../components/categoryStoryBar';
 import SearchBar from '../../../components/searchBar';
 import TryOnConfirmModal from '../../../components/tryOnConfirmModal';
+import { SectionLoader } from '../../../components/loadingSpinner';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useWishlist } from '../../../context/wishlistContext';
-import {
-  APP_CATEGORIES,
-  MASTER_COLLECTIONS,
-  SORT_OPTIONS,
-  QUICK_CHIPS,
-} from '../../../data';
+import { SORT_OPTIONS, QUICK_CHIPS } from '../../../data';
+import { useCatalog } from '../../../context/catalogContext';
+import { useLoading } from '../../../context/loadingContext';
 
 
 
@@ -86,13 +84,25 @@ function CollectionsScreen({ navigation, route }) {
   const [activeQuickChip, setActiveQuickChip] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
   const { wishlist, toggleWishlist } = useWishlist();
+  const { navigateWithLoading } = useLoading();
 
   // Selected Product Detail Sheet
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [sheetReady, setSheetReady] = useState(false);
   const [quickViewImageIndex, setQuickViewImageIndex] = useState(0);
   const mainScrollRef = useRef(null);
 
-  // Sync route params when navigated with a product or category
+  useEffect(() => {
+    if (!selectedProduct) {
+      setSheetReady(false);
+      return undefined;
+    }
+    setSheetReady(false);
+    const timer = setTimeout(() => setSheetReady(true), 280);
+    return () => clearTimeout(timer);
+  }, [selectedProduct?.id]);
+
+  // Sync route params when navigated with a product or category (from Home)
   useEffect(() => {
     if (route?.params?.category !== undefined) {
       setActiveCategory(route.params.category);
@@ -104,7 +114,7 @@ function CollectionsScreen({ navigation, route }) {
       setSelectedProduct(route.params.product);
       setQuickViewImageIndex(0);
     }
-  }, [route?.params]);
+  }, [route?.params?.category, route?.params?.timestamp, route?.params?.product]);
 
   // Show tab bar on focus
   useEffect(() => {
@@ -117,8 +127,20 @@ function CollectionsScreen({ navigation, route }) {
 
 
   // Filter & Sort Logic
+  const { sarees, categories, loading, error, refresh } = useCatalog();
+
+  const openProduct = useCallback(
+    (prod) => {
+      navigateWithLoading(navigation, 'CardDetail', {
+        sareeId: prod.id,
+        product: prod,
+      });
+    },
+    [navigation, navigateWithLoading],
+  );
+
   const filteredProducts = useMemo(() => {
-    let result = MASTER_COLLECTIONS.filter((item) => {
+    let result = sarees.filter((item) => {
       // Category Filter
       if (activeCategory !== 'all' && item.category !== activeCategory) {
         return false;
@@ -168,7 +190,7 @@ function CollectionsScreen({ navigation, route }) {
     }
 
     return result;
-  }, [activeCategory, activeQuickChip, searchQuery, sortBy]);
+  }, [activeCategory, activeQuickChip, searchQuery, sortBy, sarees]);
 
   // Handle Scroll to hide/show bottom tab bar
   const handleScroll = (event) => {
@@ -187,7 +209,7 @@ function CollectionsScreen({ navigation, route }) {
   const handleShareProduct = async (product) => {
     try {
       await Share.share({
-        message: `Discover ${product.title} from Tripuraa Sangrahah - ${product.price}. Handcrafted luxury saree.`,
+        message: `Discover ${product.title} from Tripuraa Sangrahah${product.productCode ? ` (${product.productCode})` : ''}.`,
       });
     } catch (err) {
       // silent handle
@@ -240,6 +262,7 @@ function CollectionsScreen({ navigation, route }) {
            ===================================================================== */}
         <View style={{ paddingTop: 8, marginBottom: 14 }}>
           <CategoryStoryBar
+            categories={categories}
             activeCategory={activeCategory}
             onSelectCategory={setActiveCategory}
             contentContainerStyle={{
@@ -381,6 +404,22 @@ function CollectionsScreen({ navigation, route }) {
           {/* =====================================================================
               PRODUCT FEED (Clean Responsive Saree Grid with Generous Gaps)
              ===================================================================== */}
+          {loading && sarees.length === 0 ? (
+            <SectionLoader message="Loading collection..." minHeight={260} />
+          ) : error && sarees.length === 0 ? (
+            <View style={{ paddingHorizontal: hPadding, paddingVertical: 40, alignItems: 'center' }}>
+              <Text
+                onPress={refresh}
+                style={{
+                  fontFamily: 'Manrope-SemiBold',
+                  fontSize: 13,
+                  color: colours.blue,
+                  textAlign: 'center',
+                }}>
+                {error} Tap to retry.
+              </Text>
+            </View>
+          ) : (
           <View
             style={{
               paddingHorizontal: hPadding,
@@ -395,12 +434,7 @@ function CollectionsScreen({ navigation, route }) {
                 product={item}
                 cardWidth={cardWidth}
                 isWishlisted={!!wishlist[item.id]}
-                onPress={(prod) => {
-                  navigation?.navigate?.('CardDetail', {
-                    product: prod,
-                    sareeId: prod.id,
-                  });
-                }}
+                onPress={openProduct}
                 onTryOn={(prod) => {
                   setTryOnConfirmSaree(prod);
                 }}
@@ -411,11 +445,12 @@ function CollectionsScreen({ navigation, route }) {
               />
             ))}
           </View>
+          )}
 
           {/* =====================================================================
               EMPTY SEARCH / FILTER STATE
              ===================================================================== */}
-          {filteredProducts.length === 0 && (
+          {!loading && !(error && sarees.length === 0) && filteredProducts.length === 0 && (
             <View
               style={{
                 alignItems: 'center',
@@ -490,7 +525,10 @@ function CollectionsScreen({ navigation, route }) {
         visible={!!selectedProduct}
         onClose={() => setSelectedProduct(null)}
         maxHeight="88%">
-        {selectedProduct && (
+        {selectedProduct && !sheetReady ? (
+          <SectionLoader message="Loading saree details..." minHeight={260} />
+        ) : null}
+        {selectedProduct && sheetReady ? (
           <>
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Saree Multi-Photo Carousel */}
@@ -516,20 +554,26 @@ function CollectionsScreen({ navigation, route }) {
                       <View
                         key={idx}
                         style={{ width: screenWidth, height: 230 }}>
-                        <Image
-                          source={img}
-                          style={{ width: '100%', height: '100%' }}
-                          resizeMode="cover"
-                        />
+                        {img ? (
+                          <Image
+                            source={img}
+                            style={{ width: '100%', height: '100%' }}
+                            resizeMode="cover"
+                          />
+                        ) : (
+                          <Text style={{ textAlign: 'center', marginTop: 90, color: '#A59B8F' }}>-</Text>
+                        )}
                       </View>
                     ))}
                   </ScrollView>
-                ) : (
+                ) : selectedProduct.image || selectedProduct.images?.[0] ? (
                   <Image
                     source={selectedProduct.image || selectedProduct.images?.[0]}
                     style={{ width: '100%', height: '100%' }}
                     resizeMode="cover"
                   />
+                ) : (
+                  <Text style={{ textAlign: 'center', marginTop: 90, color: '#A59B8F' }}>-</Text>
                 )}
 
                 {/* Close Pill */}
@@ -583,32 +627,18 @@ function CollectionsScreen({ navigation, route }) {
 
               {/* Saree Metadata & Provenance */}
               <View style={{ paddingHorizontal: 20, paddingTop: 14 }}>
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 4,
-                  }}>
+                {selectedProduct.collectionLine || selectedProduct.productCode ? (
                   <Text
                     style={{
                       fontFamily: 'Comfortaa-Bold',
                       fontSize: 12,
                       color: colours.saffron || '#BF5B21',
                       letterSpacing: 0.5,
+                      marginBottom: 4,
                     }}>
-                    {selectedProduct.brand?.toUpperCase()}
+                    {selectedProduct.productCode || selectedProduct.collectionLine}
                   </Text>
-
-                  <Text
-                    style={{
-                      fontFamily: 'Manrope-Bold',
-                      fontSize: 20,
-                      color: '#161413',
-                    }}>
-                    {selectedProduct.price}
-                  </Text>
-                </View>
+                ) : null}
 
                 <Text
                   style={{
@@ -620,72 +650,6 @@ function CollectionsScreen({ navigation, route }) {
                   }}>
                   {selectedProduct.title}
                 </Text>
-
-                {/* Provenance Pills Grid */}
-                <View
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                    gap: 8,
-                    marginBottom: 12,
-                  }}>
-                  <View
-                    style={{
-                      backgroundColor: '#F7F5F0',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4.5,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#EDE9E2',
-                    }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 10.5,
-                        color: '#5E574E',
-                      }}>
-                      Weave: {selectedProduct.weave}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      backgroundColor: '#F7F5F0',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4.5,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#EDE9E2',
-                    }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 10.5,
-                        color: '#5E574E',
-                      }}>
-                      Fabric: {selectedProduct.fabric}
-                    </Text>
-                  </View>
-
-                  <View
-                    style={{
-                      backgroundColor: '#F7F5F0',
-                      paddingHorizontal: 10,
-                      paddingVertical: 4.5,
-                      borderRadius: 8,
-                      borderWidth: 1,
-                      borderColor: '#EDE9E2',
-                    }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 10.5,
-                        color: '#5E574E',
-                      }}>
-                      Zari: {selectedProduct.zari}
-                    </Text>
-                  </View>
-                </View>
 
                 {/* Description */}
                 <Text
@@ -785,7 +749,7 @@ function CollectionsScreen({ navigation, route }) {
               </TouchableOpacity>
             </View>
           </>
-        )}
+        ) : null}
       </BottomSheet>
 
       {/* Try-On Confirmation Modal */}
@@ -795,7 +759,7 @@ function CollectionsScreen({ navigation, route }) {
         onConfirm={() => {
           const target = tryOnConfirmSaree;
           setTryOnConfirmSaree(null);
-          navigation?.navigate?.('TryOnTab', { product: target });
+          navigateWithLoading(navigation, 'TryOnTab', { product: target });
         }}
         onCancel={() => setTryOnConfirmSaree(null)}
       />

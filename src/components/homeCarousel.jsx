@@ -17,72 +17,11 @@ import Svg, {
 } from 'react-native-svg';
 import Icon from 'react-native-vector-icons/Ionicons';
 
-export const HOME_OFFERS = [
-  {
-    id: 'grand_silk_utsav',
-    badge: '✦ GRAND SILK UTSAV',
-    badgeBg: 'rgba(255, 215, 112, 0.18)',
-    badgeColor: '#FFD978',
-    headlinePrefix: 'FLAT',
-    discount: '30% OFF',
-    title: 'Pure Kanchipuram Silks',
-    couponCode: 'UTSAV30',
-    ctaText: 'Claim Offer',
-    bgStart: '#4E0C1A',
-    bgEnd: '#29040C',
-    accentColor: '#FFD978',
-    image: require('../assets/sareeModelPink_nobg.png'),
-    imageType: 'cutout',
-  },
-  {
-    id: 'banarasi_meenakari',
-    badge: '⚡ LIMITED FESTIVE DEAL',
-    badgeBg: 'rgba(165, 230, 181, 0.18)',
-    badgeColor: '#A8EDB8',
-    headlinePrefix: 'UP TO',
-    discount: '45% OFF',
-    title: 'Heirloom Banarasi Brocades',
-    couponCode: 'BANARAS45',
-    ctaText: 'Shop Weaves',
-    bgStart: '#0B2B20',
-    bgEnd: '#04150E',
-    accentColor: '#A8EDB8',
-    image: require('../assets/sareeEmerald.jpg'),
-    imageType: 'cover',
-  },
-  {
-    id: 'bridal_trousseau',
-    badge: '👑 BRIDAL TROUSSEAU',
-    badgeBg: 'rgba(255, 200, 184, 0.18)',
-    badgeColor: '#FFCBB8',
-    headlinePrefix: 'FLAT',
-    discount: '₹5,000 OFF',
-    title: 'Handcrafted Bridal Lehengas',
-    couponCode: 'ROYAL5K',
-    ctaText: 'View Bridal',
-    bgStart: '#13192B',
-    bgEnd: '#080C16',
-    accentColor: '#FFCBB8',
-    image: require('../assets/category_lehenga.jpg'),
-    imageType: 'cover',
-  },
-  {
-    id: 'crimson_heritage',
-    badge: '🎉 SPECIAL WEDDING EDIT',
-    badgeBg: 'rgba(255, 223, 136, 0.18)',
-    badgeColor: '#FFE188',
-    headlinePrefix: 'SAVE',
-    discount: '25% OFF',
-    title: 'Heritage Crimson Temple Silks',
-    couponCode: 'TEMPLE25',
-    ctaText: 'Explore Now',
-    bgStart: '#5E141E',
-    bgEnd: '#32060D',
-    accentColor: '#FFE188',
-    image: require('../assets/sareeCrimson.jpg'),
-    imageType: 'cover',
-  },
-];
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const CARD_WIDTH = Math.round((SCREEN_WIDTH || 390) * 0.85);
+const CARD_HEIGHT = 195;
+
+export const HOME_OFFERS = [];
 
 function HomeCarousel({ onBannerPress, banners = HOME_OFFERS }) {
   const { width: windowWidth } = useWindowDimensions();
