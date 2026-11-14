@@ -83,19 +83,6 @@ function formatPrice(val) {
   return s ? `₹${s}` : '';
 }
 
-function calculateMrp(priceVal, mrpVal) {
-  if (mrpVal) return formatPrice(mrpVal);
-  if (!priceVal) return '';
-  const num = typeof priceVal === 'number'
-    ? priceVal
-    : Number(String(priceVal).replace(/[^0-9.]/g, ''));
-  if (!Number.isNaN(num) && num > 0) {
-    const calculated = Math.round(num * 1.25);
-    return `₹${calculated.toLocaleString('en-IN')}`;
-  }
-  return '';
-}
-
 /**
  * ZoomableImage Component
  *
@@ -734,33 +721,35 @@ function CardDetailScreen({ navigation, route }) {
                 </TouchableOpacity>
               ))}
             </ScrollView>
-          </View>
 
-          {/* ===================================================================
-              PHOTO CONTROLS (OUTSIDE THE IMAGE)
-             =================================================================== */}
-          <View style={styles.outsidePhotoControlsRow}>
-            {/* Photo Pagination Counter */}
-            {imageList.length > 1 ? (
-              <View style={styles.outsideCounterPill}>
-                <Text style={styles.outsideCounterText}>
-                  {activeImageIdx + 1} / {imageList.length}
-                </Text>
-              </View>
-            ) : (
-              <View />
-            )}
+            {/* ===================================================================
+                PHOTO CONTROLS (INSIDE / OVERLAYING THE IMAGE AT THE BOTTOM)
+               =================================================================== */}
+            <View
+              pointerEvents="box-none"
+              style={styles.imageOverlayControlsRow}>
+              {/* Photo Pagination Counter */}
+              {imageList.length > 1 ? (
+                <View style={styles.imageOverlayCounterPill}>
+                  <Text style={styles.imageOverlayCounterText}>
+                    {activeImageIdx + 1} / {imageList.length}
+                  </Text>
+                </View>
+              ) : (
+                <View />
+              )}
 
-            {/* View Full Screen Button */}
-            <TouchableOpacity
-              activeOpacity={0.8}
-              onPress={() => setIsFullScreenModal(true)}
-              style={styles.outsideFullScreenBtn}
-              accessibilityRole="button"
-              accessibilityLabel="View full screen">
-              <Icon name="scan-outline" size={13} color="#161413" />
-              <Text style={styles.outsideFullScreenText}>View Full Screen</Text>
-            </TouchableOpacity>
+              {/* View Full Screen Button */}
+              <TouchableOpacity
+                activeOpacity={0.82}
+                onPress={() => setIsFullScreenModal(true)}
+                style={styles.imageOverlayFullScreenBtn}
+                accessibilityRole="button"
+                accessibilityLabel="View full screen">
+                <Icon name="scan-outline" size={13} color="#161413" />
+                <Text style={styles.imageOverlayFullScreenText}>View Full Screen</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Details scroll. The photo above stays fixed. */}
@@ -783,44 +772,26 @@ function CardDetailScreen({ navigation, route }) {
                 .toUpperCase()}
             </Text>
 
-            {/* 2. Product Title & Clean Code Badge */}
+            {/* Title on the left, the exact price on the right. */}
             <View style={styles.titleCodeRow}>
               <Text style={styles.productTitle}>
                 {dash(currentProduct.title)}
               </Text>
-              {currentProduct.productCode ? (
+              <Text style={styles.priceValue}>
+                {formatPrice(currentProduct.price || currentProduct.numericPrice) || '-'}
+              </Text>
+            </View>
+
+            {currentProduct.productCode ? (
+              <View style={styles.codeRow}>
+                <Text style={styles.codeLabel}>Code</Text>
                 <View style={styles.cleanCodeBadge}>
                   <Text style={styles.cleanCodeBadgeText}>
                     {currentProduct.productCode}
                   </Text>
                 </View>
-              ) : null}
-            </View>
-
-            {/* 3. Price, Strikethrough MRP & In-Stock Status Badge */}
-            <View style={styles.priceStockRow}>
-              <View style={styles.priceCluster}>
-                <Text style={styles.priceValue}>
-                  {formatPrice(currentProduct.price || currentProduct.numericPrice)}
-                </Text>
-                {calculateMrp(
-                  currentProduct.price || currentProduct.numericPrice,
-                  currentProduct.mrp,
-                ) ? (
-                  <Text style={styles.mrpText}>
-                    {calculateMrp(
-                      currentProduct.price || currentProduct.numericPrice,
-                      currentProduct.mrp,
-                    )}
-                  </Text>
-                ) : null}
               </View>
-
-              <View style={styles.inStockBadge}>
-                <View style={styles.inStockDot} />
-                <Text style={styles.inStockText}>In Stock</Text>
-              </View>
-            </View>
+            ) : null}
 
             {/* 4. Description */}
             {currentProduct.description ? (
@@ -831,23 +802,13 @@ function CardDetailScreen({ navigation, route }) {
 
             {/* 5. Clean Atelier Craft Specifications Card */}
             {craftSpecs.length > 0 ? (
-              <View style={styles.specCard}>
-                <View style={styles.specHeaderRow}>
-                  <Icon
-                    name="ribbon-outline"
-                    size={13}
-                    color={colours.saffron || '#BF5B21'}
-                  />
-                  <Text style={styles.specHeaderTitle}>CRAFT & SPECIFICATIONS</Text>
-                </View>
-                <View style={styles.specGrid}>
-                  {craftSpecs.map(([label, value]) => (
-                    <View key={label} style={styles.specItemRow}>
-                      <Text style={styles.specLabel}>{label}</Text>
-                      <Text style={styles.specValue}>{value}</Text>
-                    </View>
-                  ))}
-                </View>
+              <View style={styles.specList}>
+                {craftSpecs.map(([label, value]) => (
+                  <View key={label} style={styles.specItemRow}>
+                    <Text style={styles.specLabel}>{label}</Text>
+                    <Text style={styles.specValue}>{value}</Text>
+                  </View>
+                ))}
               </View>
             ) : null}
 
@@ -863,8 +824,8 @@ function CardDetailScreen({ navigation, route }) {
                   Linking.openURL(`https://wa.me/${digits}?text=${text}`).catch(() => null);
                 }}
                 style={styles.orderBtn}>
-                <Icon name="logo-whatsapp" size={17} color="#25D366" />
-                <Text style={styles.orderBtnText}>Inquire & Order via WhatsApp</Text>
+                <Icon name="logo-whatsapp" size={16} color="#161413" />
+                <Text style={styles.orderBtnText}>To Order • WhatsApp</Text>
               </TouchableOpacity>
             ) : null}
 
@@ -1129,46 +1090,56 @@ const styles = StyleSheet.create({
     borderColor: '#ECE7DE',
     alignSelf: 'center',
     marginBottom: 10,
+    position: 'relative',
   },
-  outsidePhotoControlsRow: {
+  imageOverlayControlsRow: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    right: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
-    paddingHorizontal: 1,
+    zIndex: 10,
   },
-  outsideCounterPill: {
-    backgroundColor: '#F7F5F0',
-    paddingHorizontal: 7,
-    paddingVertical: 3.5,
-    borderRadius: 7,
+  imageOverlayCounterPill: {
+    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: '#ECE7DE',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  outsideCounterText: {
-    fontFamily: 'Manrope-SemiBold',
-    fontSize: 9.5,
-    color: '#7D7569',
+  imageOverlayCounterText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 10,
+    color: '#161413',
+    letterSpacing: 0.2,
   },
-  outsideFullScreenBtn: {
+  imageOverlayFullScreenBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 9,
-    paddingVertical: 4.5,
-    borderRadius: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E8E3DA',
-    gap: 4.5,
+    gap: 5,
     shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 1.5 },
+    shadowOpacity: 0.09,
+    shadowRadius: 3,
+    elevation: 2,
   },
-  outsideFullScreenText: {
+  imageOverlayFullScreenText: {
     fontFamily: 'Comfortaa-Bold',
-    fontSize: 9.5,
+    fontSize: 10,
     color: '#161413',
   },
   infoSection: {
@@ -1191,144 +1162,89 @@ const styles = StyleSheet.create({
   productTitle: {
     flex: 1,
     fontFamily: 'Comfortaa-Bold',
-    fontSize: 18,
+    fontSize: 15,
     color: '#161413',
-    lineHeight: 24,
-    letterSpacing: -0.3,
+    lineHeight: 20,
+    letterSpacing: -0.2,
+    marginRight: 10,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+    marginBottom: 10,
+  },
+  codeLabel: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 12,
+    color: '#161413',
   },
   cleanCodeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3.5,
-    backgroundColor: '#F5EFE6',
-    borderRadius: 6,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#E8DFD1',
-    alignSelf: 'flex-start',
-    marginTop: 2,
+    borderColor: '#161413',
+    backgroundColor: '#FFFFFF',
   },
   cleanCodeBadgeText: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 10.5,
-    color: '#70685E',
-    letterSpacing: 0.5,
-  },
-  priceStockRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2ECE4',
-  },
-  priceCluster: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    fontSize: 11,
+    color: '#161413',
+    letterSpacing: 0.3,
   },
   priceValue: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 22,
+    fontSize: 16.5,
     color: '#161413',
-    letterSpacing: -0.4,
-  },
-  mrpText: {
-    fontFamily: 'Manrope-Medium',
-    fontSize: 13,
-    color: '#A0988E',
-    textDecorationLine: 'line-through',
-  },
-  inStockBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#EAF7EE',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#D4EED8',
-  },
-  inStockDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
-    backgroundColor: '#2E7D32',
-    marginRight: 4,
-  },
-  inStockText: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 10.5,
-    color: '#2E7D32',
-    letterSpacing: 0.2,
+    letterSpacing: -0.3,
   },
   descriptionText: {
     fontFamily: 'Comfortaa-Regular',
-    fontSize: 12.5,
+    fontSize: 12,
     color: '#5C554B',
-    lineHeight: 19,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  specList: {
     marginBottom: 16,
-  },
-  specCard: {
-    backgroundColor: '#FAF7F2',
-    borderWidth: 1,
-    borderColor: '#EFE8DE',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    marginBottom: 16,
-  },
-  specHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 10,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: '#ECE4D8',
-  },
-  specHeaderTitle: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 10.5,
-    letterSpacing: 1.2,
-    color: '#8A8175',
-  },
-  specGrid: {
-    gap: 7,
   },
   specItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
     gap: 12,
+    paddingVertical: 5,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0EBE4',
   },
   specLabel: {
-    fontFamily: 'Comfortaa-Bold',
-    fontSize: 11.5,
-    color: '#70685E',
+    fontFamily: 'Manrope-Bold',
+    fontSize: 12,
+    color: '#161413',
     minWidth: 64,
   },
   specValue: {
     flex: 1,
     textAlign: 'right',
-    fontFamily: 'Comfortaa-Regular',
-    fontSize: 11.5,
+    fontFamily: 'Manrope-Medium',
+    fontSize: 12,
     color: '#161413',
-    lineHeight: 16,
+    lineHeight: 17,
   },
   orderBtn: {
     height: 44,
-    borderRadius: 12,
-    backgroundColor: '#F5EFE6',
-    borderWidth: 1,
-    borderColor: '#E6DDD0',
+    borderRadius: 10,
+    backgroundColor: '#25D366',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   orderBtnText: {
-    fontFamily: 'Manrope-SemiBold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 13,
     color: '#161413',
     letterSpacing: 0.2,
