@@ -23,7 +23,7 @@ import { apiCall } from '../api/client';
 function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel }) {
   const navigation = useNavigation();
   const [consent, setConsent] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [agreed, setAgreed] = useState(false);
 
@@ -31,11 +31,14 @@ function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel 
     if (!visible) {
       setAgreed(false);
       setError('');
+      setConsent(null);
+      setLoading(true);
       return undefined;
     }
     let live = true;
     setLoading(true);
     setError('');
+    setConsent(null);
     apiCall('get', '/legal/terms').then((result) => {
       if (!live) return;
       const next = result?.data?.tryOnConsent;
@@ -123,19 +126,23 @@ function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel 
               </View>
 
               <View style={styles.consentBox}>
-                {loading ? (
+                {loading || (!consent && !error) ? (
                   <View style={styles.loadingBlock}>
                     <ActivityIndicator color={colours.saffron || '#BF5B21'} />
                     <Text style={styles.loadingText}>Loading Terms…</Text>
                   </View>
-                ) : error ? (
+                ) : error || !consent ? (
                   <View>
-                    <Text style={styles.errorText}>{error}</Text>
+                    <Text style={styles.errorText}>
+                      {error ||
+                        'Terms could not be loaded. Check your connection and try again.'}
+                    </Text>
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => {
                         setLoading(true);
                         setError('');
+                        setConsent(null);
                         apiCall('get', '/legal/terms').then((result) => {
                           const next = result?.data?.tryOnConsent;
                           if (result.success && next?.points?.length) {
@@ -160,12 +167,12 @@ function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel 
                   </View>
                 ) : (
                   <>
-                    <Text style={styles.consentTitle}>{consent.title}</Text>
+                    <Text style={styles.consentTitle}>{consent?.title}</Text>
                     <ScrollView
                       style={styles.consentScroll}
                       nestedScrollEnabled
                       showsVerticalScrollIndicator={false}>
-                      {consent.points.map((point, index) => (
+                      {(consent?.points || []).map((point, index) => (
                         <View key={index} style={styles.pointRow}>
                           <Text style={styles.bullet}>•</Text>
                           <Text style={styles.pointText}>{point}</Text>
