@@ -620,23 +620,57 @@ function CardDetailScreen({ navigation, route }) {
             transform: [{ translateY: sheetTranslateY }],
           },
         ]}>
-        {/* HEADER AREA: Centered Drag Handle + Top-Right Close Button */}
-        <View style={styles.handleArea}>
-          {/* Centered Drag Handle Bar */}
-          <View {...panResponder.panHandlers} style={styles.dragPillWrapper}>
-            <View style={styles.handleBar} />
-          </View>
-
-          {/* Close Button Top-Right */}
+        {/* ===================================================================
+            HEADER AREA: Close 'X' (left) + Centered Drag Pill + Share & Like (right)
+           =================================================================== */}
+        <View style={styles.topHeaderBar}>
+          {/* Close Button Top-Left with proper spacing */}
           <TouchableOpacity
             activeOpacity={0.7}
             onPress={handleClose}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={styles.closeBtn}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={styles.topRoundBtn}
             accessibilityRole="button"
             accessibilityLabel="Close">
-            <Icon name="close" size={16} color="#5C554B" />
+            <Icon name="close" size={17} color="#161413" />
           </TouchableOpacity>
+
+          {/* Centered Drag Handle Bar */}
+          <View
+            {...panResponder.panHandlers}
+            style={styles.centerDragPill}
+            pointerEvents="box-none">
+            <View style={styles.handleBar} />
+          </View>
+
+          {/* Top-Right: Share & Like Buttons beside each other */}
+          <View style={styles.topActionsRow}>
+            {/* Share Button */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={handleShare}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.topRoundBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Share saree">
+              <Icon name="share-outline" size={17} color="#161413" />
+            </TouchableOpacity>
+
+            {/* Like (Wishlist) Button */}
+            <TouchableOpacity
+              activeOpacity={0.7}
+              onPress={() => currentProduct?.id && toggleWishlist(currentProduct.id)}
+              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              style={styles.topRoundBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Wishlist">
+              <Icon
+                name={isWishlisted ? 'heart' : 'heart-outline'}
+                size={17}
+                color={isWishlisted ? (colours.saffron || '#BF5B21') : '#161413'}
+              />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {detailLoading ? (
@@ -752,29 +786,14 @@ function CardDetailScreen({ navigation, route }) {
             </View>
           </View>
 
-          {/* Details scroll. The photo above stays fixed. */}
-          <ScrollView
-            style={styles.detailScroll}
-            showsVerticalScrollIndicator={false}
-            bounces={false}
-            nestedScrollEnabled
-            contentContainerStyle={styles.scrollContent}>
-          <View style={styles.infoSection}>
-            {/* 1. Provenance Tag Line */}
-            <Text style={styles.provenanceTag} numberOfLines={1}>
-              {[
-                currentProduct.brand || 'TRIPURAA HERITAGE',
-                currentProduct.weave || 'HANDLOOM SILK',
-                currentProduct.origin,
-              ]
-                .filter(Boolean)
-                .join(' • ')
-                .toUpperCase()}
-            </Text>
-
+          {/* ===================================================================
+              FIXED PRODUCT HEADER: Title, Price, Code Badge & "Try On With AI"
+              Fixed directly below the saree photo, above the specs scroll.
+             =================================================================== */}
+          <View style={styles.fixedInfoSection}>
             {/* Title on the left, the exact price on the right. */}
             <View style={styles.titleCodeRow}>
-              <Text style={styles.productTitle}>
+              <Text style={styles.productTitle} numberOfLines={2}>
                 {dash(currentProduct.title)}
               </Text>
               <Text style={styles.priceValue}>
@@ -782,25 +801,52 @@ function CardDetailScreen({ navigation, route }) {
               </Text>
             </View>
 
-            {currentProduct.productCode ? (
-              <View style={styles.codeRow}>
-                <Text style={styles.codeLabel}>Code</Text>
-                <View style={styles.cleanCodeBadge}>
-                  <Text style={styles.cleanCodeBadgeText}>
-                    {currentProduct.productCode}
-                  </Text>
+            {/* Below Price: Code on the left, Try On With AI on the right */}
+            <View style={styles.codeTryOnRow}>
+              {currentProduct.productCode ? (
+                <View style={styles.codeRow}>
+                  <Text style={styles.codeLabel}>Code</Text>
+                  <View style={styles.cleanCodeBadge}>
+                    <Text style={styles.cleanCodeBadgeText}>
+                      {currentProduct.productCode}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ) : null}
+              ) : (
+                <View />
+              )}
 
-            {/* 4. Description */}
+              {/* Try On With AI Button */}
+              <TouchableOpacity
+                activeOpacity={0.88}
+                onPress={handleTryOn}
+                style={styles.fixedTryOnBtn}
+                accessibilityRole="button"
+                accessibilityLabel="Try on with AI">
+                <TryOnSparkleIcon size={14} color="#FFFFFF" />
+                <Text style={styles.fixedTryOnText}>Try On With AI</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* ===================================================================
+              SCROLLABLE ATELIER CRAFT SPECIFICATIONS & DESCRIPTION
+              Only this middle section (weave, fabric, zari, etc.) scrolls!
+             =================================================================== */}
+          <ScrollView
+            style={styles.detailScroll}
+            showsVerticalScrollIndicator={false}
+            bounces={true}
+            nestedScrollEnabled
+            contentContainerStyle={styles.scrollContent}>
+            {/* Description */}
             {currentProduct.description ? (
               <Text style={styles.descriptionText}>
                 {dash(currentProduct.description)}
               </Text>
             ) : null}
 
-            {/* 5. Clean Atelier Craft Specifications Card */}
+            {/* Clean Atelier Craft Specifications (Weave, Fabric, Zari, etc.) */}
             {craftSpecs.length > 0 ? (
               <View style={styles.specList}>
                 {craftSpecs.map(([label, value]) => (
@@ -811,9 +857,13 @@ function CardDetailScreen({ navigation, route }) {
                 ))}
               </View>
             ) : null}
+          </ScrollView>
 
-            {/* 6. WhatsApp Concierge Order Button */}
-            {support?.whatsappPhone ? (
+          {/* ===================================================================
+              FIXED BOTTOM ACTION: WhatsApp Concierge Order Button
+             =================================================================== */}
+          {support?.whatsappPhone ? (
+            <View style={styles.fixedBottomContainer}>
               <TouchableOpacity
                 activeOpacity={0.88}
                 onPress={() => {
@@ -823,53 +873,14 @@ function CardDetailScreen({ navigation, route }) {
                   );
                   Linking.openURL(`https://wa.me/${digits}?text=${text}`).catch(() => null);
                 }}
-                style={styles.orderBtn}>
-                <Icon name="logo-whatsapp" size={16} color="#161413" />
+                style={styles.orderBtn}
+                accessibilityRole="button"
+                accessibilityLabel="To order via WhatsApp">
+                <Icon name="logo-whatsapp" size={17} color="#161413" />
                 <Text style={styles.orderBtnText}>To Order • WhatsApp</Text>
               </TouchableOpacity>
-            ) : null}
-
-            {/* ===================================================================
-                NATURAL ACTION BUTTONS ROW (NO FIXED BOTTOM BOX!)
-               =================================================================== */}
-            <View style={styles.actionsRow}>
-              {/* Wishlist Heart Button */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={() => toggleWishlist(currentProduct.id)}
-                style={styles.actionRoundBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Wishlist">
-                <Icon
-                  name={isWishlisted ? 'heart' : 'heart-outline'}
-                  size={20}
-                  color={isWishlisted ? (colours.saffron || '#BF5B21') : '#161413'}
-                />
-              </TouchableOpacity>
-
-              {/* Share Button */}
-              <TouchableOpacity
-                activeOpacity={0.8}
-                onPress={handleShare}
-                style={styles.actionRoundBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Share saree">
-                <Icon name="share-outline" size={20} color="#161413" />
-              </TouchableOpacity>
-
-              {/* Main CTA: Try On With AI Button */}
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={handleTryOn}
-                style={styles.mainCtaBtn}
-                accessibilityRole="button"
-                accessibilityLabel="Try on with AI">
-                <TryOnSparkleIcon size={16} color="#FFFFFF" />
-                <Text style={styles.mainCtaText}>Try On With AI</Text>
-              </TouchableOpacity>
             </View>
-          </View>
-          </ScrollView>
+          ) : null}
           </>
           )}
       </Animated.View>
@@ -1047,18 +1058,24 @@ const styles = StyleSheet.create({
   detailScroll: {
     flex: 1,
   },
-  handleArea: {
-    width: '100%',
-    position: 'relative',
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingTop: 2,
     paddingBottom: 8,
+    width: '100%',
+    position: 'relative',
+    minHeight: 40,
+  },
+  centerDragPill: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  dragPillWrapper: {
-    alignItems: 'center',
-    paddingVertical: 4,
-    width: '100%',
   },
   handleBar: {
     width: 38,
@@ -1066,21 +1083,26 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: '#D6D2CC',
   },
-  closeBtn: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  topActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 2,
+  },
+  topRoundBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: '#F5F2EC',
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 10,
+    borderWidth: 1,
+    borderColor: '#ECE7DE',
+    zIndex: 2,
   },
   scrollContent: {
-    paddingTop: 2,
-    paddingBottom: 16,
+    paddingTop: 4,
+    paddingBottom: 10,
   },
   imageCardContainer: {
     borderRadius: 16,
@@ -1142,14 +1164,11 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#161413',
   },
-  infoSection: {
+  fixedInfoSection: {
     paddingTop: 2,
-  },
-  provenanceTag: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 11,
-    letterSpacing: 1.4,
-    color: colours.saffron || '#BF5B21',
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0ECE4',
     marginBottom: 6,
   },
   titleCodeRow: {
@@ -1157,7 +1176,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   productTitle: {
     flex: 1,
@@ -1168,25 +1187,35 @@ const styles = StyleSheet.create({
     letterSpacing: -0.2,
     marginRight: 10,
   },
+  priceValue: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 16.5,
+    color: '#161413',
+    letterSpacing: -0.3,
+  },
+  codeTryOnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
   codeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 6,
-    marginBottom: 10,
+    gap: 6,
   },
   codeLabel: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 12,
-    color: '#161413',
+    fontSize: 11,
+    color: '#70685E',
   },
   cleanCodeBadge: {
     paddingHorizontal: 7,
     paddingVertical: 2,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#161413',
-    backgroundColor: '#FFFFFF',
+    borderColor: '#ECE7DE',
+    backgroundColor: '#F5F2EC',
   },
   cleanCodeBadgeText: {
     fontFamily: 'Manrope-Bold',
@@ -1194,21 +1223,35 @@ const styles = StyleSheet.create({
     color: '#161413',
     letterSpacing: 0.3,
   },
-  priceValue: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 16.5,
-    color: '#161413',
-    letterSpacing: -0.3,
+  fixedTryOnBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colours.saffron || '#BF5B21',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 18,
+    shadowColor: colours.saffron || '#BF5B21',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.22,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  fixedTryOnText: {
+    fontFamily: 'Comfortaa-Bold',
+    fontSize: 11.5,
+    color: '#FFFFFF',
+    letterSpacing: 0.2,
   },
   descriptionText: {
     fontFamily: 'Comfortaa-Regular',
     fontSize: 12,
     color: '#5C554B',
     lineHeight: 18,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   specList: {
-    marginBottom: 16,
+    marginBottom: 8,
   },
   specItemRow: {
     flexDirection: 'row',
@@ -1233,63 +1276,31 @@ const styles = StyleSheet.create({
     color: '#161413',
     lineHeight: 17,
   },
+  fixedBottomContainer: {
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#F0ECE4',
+    backgroundColor: '#FFFFFF',
+  },
   orderBtn: {
     height: 44,
-    borderRadius: 10,
+    borderRadius: 12,
     backgroundColor: '#25D366',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
+    shadowColor: '#25D366',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 4,
+    elevation: 2,
   },
   orderBtnText: {
     fontFamily: 'Manrope-Bold',
     fontSize: 13,
     color: '#161413',
     letterSpacing: 0.2,
-  },
-  actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingTop: 2,
-  },
-  actionRoundBtn: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: '#FFFFFF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#EDE9E2',
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 1,
-  },
-  mainCtaBtn: {
-    flex: 1,
-    height: 46,
-    borderRadius: 23,
-    backgroundColor: colours.saffron || '#BF5B21',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 7,
-    shadowColor: colours.saffron || '#BF5B21',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  mainCtaText: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 13.5,
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
   },
   modalBackdrop: {
     flex: 1,

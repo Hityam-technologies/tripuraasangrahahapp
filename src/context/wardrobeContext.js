@@ -1,10 +1,33 @@
-import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import { MASTER_COLLECTIONS, INITIAL_WISHLIST } from '../data';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
+import { apiCall } from '../api/client';
+import { useAuth } from './authContext';
+import { useCatalog } from './catalogContext';
 
 const WardrobeContext = createContext(null);
 
 export function WardrobeProvider({ children }) {
-  const [wardrobe, setWardrobe] = useState(INITIAL_WISHLIST);
+  const { user } = useAuth();
+  const { sarees } = useCatalog();
+  const [wardrobe, setWardrobe] = useState({});
+
+  useEffect(() => {
+    if (!user) {
+      setWardrobe({});
+      return;
+    }
+    let live = true;
+    apiCall('get', '/users/me/wishlist').then((result) => {
+      if (!live || !result.success) return;
+      const next = {};
+      (result.data.ids || result.data.items?.map((item) => item.id) || []).forEach((id) => {
+        next[id] = true;
+      });
+      setWardrobe(next);
+    });
+    return () => {
+      live = false;
+    };
+  }, [user]);
 
   // Check if item is saved in wardrobe
   const isInWardrobe = useCallback(
@@ -15,12 +38,22 @@ export function WardrobeProvider({ children }) {
   // Toggle wardrobe state
   const toggleWardrobe = useCallback((id) => {
     setWardrobe((prev) => {
+      const had = !!prev[id];
       const next = { ...prev };
-      if (next[id]) {
-        delete next[id];
-      } else {
-        next[id] = true;
-      }
+      if (had) delete next[id];
+      else next[id] = true;
+      const request = had
+        ? apiCall('delete', `/users/me/wishlist/${id}`)
+        : apiCall('post', `/users/me/wishlist/${id}`);
+      request.then((result) => {
+        if (result.success) return;
+        setWardrobe((current) => {
+          const rolled = { ...current };
+          if (had) rolled[id] = true;
+          else delete rolled[id];
+          return rolled;
+        });
+      });
       return next;
     });
   }, []);
@@ -33,12 +66,19 @@ export function WardrobeProvider({ children }) {
     }));
   }, []);
 
-  // Remove specifically from wardrobe
+  // Hide the saree immediately, then delete it on the server.
+  // If the request fails, put the saree back so a reload matches the screen.
   const removeFromWardrobe = useCallback((id) => {
+    if (!id) return;
     setWardrobe((prev) => {
+      if (!prev[id]) return prev;
       const next = { ...prev };
       delete next[id];
       return next;
+    });
+    apiCall('delete', `/users/me/wishlist/${encodeURIComponent(id)}`).then((result) => {
+      if (result.success) return;
+      setWardrobe((current) => ({ ...current, [id]: true }));
     });
   }, []);
 
@@ -49,8 +89,8 @@ export function WardrobeProvider({ children }) {
 
   // Derived array of full product objects currently saved in wardrobe
   const wardrobeItems = useMemo(() => {
-    return MASTER_COLLECTIONS.filter((item) => !!wardrobe[item.id]);
-  }, [wardrobe]);
+    return sarees.filter((item) => !!wardrobe[item.id]);
+  }, [wardrobe, sarees]);
 
   const wardrobeCount = wardrobeItems.length;
 

@@ -9,6 +9,8 @@ import CountryPickerBottomSheet, {
   DEFAULT_COUNTRIES,
 } from '../../components/countryPickerBottomSheet';
 import InputBox from '../../components/inputBox';
+import { ButtonSpinner, LoadingOverlay } from '../../components/loadingSpinner';
+import { useAuth } from '../../context/authContext';
 
 const Requirement = ({ ok, label }) => (
   <View className="flex-row items-center w-[48%]">
@@ -33,6 +35,8 @@ const Requirement = ({ ok, label }) => (
  */
 function RegistrationScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { register } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
 
   const [selectedCountry, setSelectedCountry] = useState(
     DEFAULT_COUNTRIES.find((c) => c.name === 'India') || DEFAULT_COUNTRIES[0],
@@ -68,7 +72,7 @@ function RegistrationScreen({ navigation }) {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
   };
 
-  const handleRegister = () => {
+  const handleRegister = async () => {
     let valid = true;
 
     if (!name.trim()) {
@@ -123,13 +127,20 @@ function RegistrationScreen({ navigation }) {
       setConfirmPasswordError('');
     }
 
-    if (valid) {
-      const fullPhone = `${selectedCountry.code} ${phone.trim()}`;
-      console.log('Registering user with email verification:', {
-        name: name.trim(),
+    if (!valid || submitting) return;
+    const fullPhone = `${selectedCountry.code} ${phone.trim()}`;
+    setSubmitting(true);
+    try {
+      const result = await register({
+        fullName: name.trim(),
         email: email.trim(),
         phone: fullPhone,
+        password,
       });
+      if (!result.success) {
+        setEmailError(result.error?.message || 'The account could not be created.');
+        return;
+      }
       navigation?.navigate?.('Otp', {
         email: email.trim(),
         phone: fullPhone,
@@ -137,6 +148,8 @@ function RegistrationScreen({ navigation }) {
         isRegistration: true,
         isForgotPassword: false,
       });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -153,6 +166,7 @@ function RegistrationScreen({ navigation }) {
   return (
     <View className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <LoadingOverlay visible={submitting} message="Creating your account..." />
 
       <KeyboardAwareScrollView
         className="flex-1 bg-white"
@@ -340,14 +354,22 @@ function RegistrationScreen({ navigation }) {
           <View className="mt-8 mb-4">
             <TouchableOpacity
               activeOpacity={0.88}
+              disabled={submitting}
               onPress={handleRegister}
               className="w-full rounded-2xl h-14 items-center justify-center mb-4 shadow-md"
-              style={{ backgroundColor: colours.primary }}>
-              <Text
-                className="font-manrope-bold text-base leading-[22px] pr-1"
-                style={{ color: colours.white }}>
-                Verify Email & Continue
-              </Text>
+              style={{
+                backgroundColor: colours.primary,
+                opacity: submitting ? 0.85 : 1,
+              }}>
+              {submitting ? (
+                <ButtonSpinner />
+              ) : (
+                <Text
+                  className="font-manrope-bold text-base leading-[22px] pr-1"
+                  style={{ color: colours.white }}>
+                  Verify Email & Continue
+                </Text>
+              )}
             </TouchableOpacity>
 
             <Text

@@ -1,5 +1,8 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import {
+  createBottomTabNavigator,
+  TransitionPresets,
+} from '@react-navigation/bottom-tabs';
 import CustomBottomTabBar from '../components/customBottomTabBar';
 import HomeScreen from '../screens/private/homeTab/homeScreen';
 import AccountScreen from '../screens/private/accountTab/accountScreen';
@@ -11,38 +14,63 @@ const Tab = createBottomTabNavigator();
 const renderCustomTabBar = (props) => <CustomBottomTabBar {...props} />;
 
 /**
+ * Built-in screen change animation for every tab.
+ * Options: TransitionPresets.ShiftTransition | FadeTransition
+ */
+const TAB_SCREEN_OPTIONS = {
+  headerShown: false,
+  animation: 'shift',
+  ...TransitionPresets.ShiftTransition,
+  sceneStyle: { backgroundColor: '#ffffff' },
+};
+
+/**
  * TabNavigator
- * Floating rounded bottom navigation bar with elevated center AI Try-On button.
- * Uses official React Navigation native 'shift' tab animation (butter-smooth, zero glitch).
+ * All tabs use the same built-in shift (slide) animation.
  */
 function TabNavigator() {
   return (
     <Tab.Navigator
       initialRouteName="HomeTab"
       tabBar={renderCustomTabBar}
-      screenOptions={{
-        headerShown: false,
-        sceneStyle: { backgroundColor: '#ffffff' },
-      }}>
+      // Keep inactive screens mounted so shift animation can run between all tabs
+      detachInactiveScreens={false}
+      screenOptions={TAB_SCREEN_OPTIONS}>
       <Tab.Screen
         name="HomeTab"
         component={HomeScreen}
-        options={{ tabBarLabel: 'Home' }}
+        options={{
+          tabBarLabel: 'Home',
+          animation: 'shift',
+          ...TransitionPresets.ShiftTransition,
+        }}
       />
       <Tab.Screen
         name="CollectionsTab"
         component={CollectionsScreen}
-        options={{ tabBarLabel: 'Collections' }}
+        options={{
+          tabBarLabel: 'Collections',
+          animation: 'shift',
+          ...TransitionPresets.ShiftTransition,
+        }}
       />
       <Tab.Screen
         name="WardrobeTab"
         component={WardrobeScreen}
-        options={{ tabBarLabel: 'Wardrobe' }}
+        options={{
+          tabBarLabel: 'Wardrobe',
+          animation: 'shift',
+          ...TransitionPresets.ShiftTransition,
+        }}
       />
       <Tab.Screen
         name="CommunityTab"
         component={AccountScreen}
-        options={{ tabBarLabel: 'Account' }}
+        options={{
+          tabBarLabel: 'Account',
+          animation: 'shift',
+          ...TransitionPresets.ShiftTransition,
+        }}
       />
     </Tab.Navigator>
   );

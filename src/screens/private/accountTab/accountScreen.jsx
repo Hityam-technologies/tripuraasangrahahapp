@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -21,7 +21,10 @@ import ProfileEditBottomSheet from '../../../components/profileEditBottomSheet';
 import StoreAddressBottomSheet from '../../../components/storeAddressBottomSheet';
 import SupportBottomSheet from '../../../components/supportBottomSheet';
 import { useTabBar } from '../../../context/tabBarContext';
-import { DEFAULT_USER_PROFILE } from '../../../data';
+import { useAuth } from '../../../context/authContext';
+import { useLoading } from '../../../context/loadingContext';
+import { dash } from '../../../lib/text';
+import { useCatalog } from '../../../context/catalogContext';
 
 const GOOGLE_MAPS_ICON = require('../../../assets/google_maps.png');
 
@@ -47,10 +50,25 @@ function AccountScreen({ navigation }) {
 
   // Floating tab bar scroll controller
   const { hideTabBar, showTabBar } = useTabBar();
+  const { navigateWithLoading, runWithLoading } = useLoading();
   const lastScrollY = useRef(0);
 
   // User Profile State
-  const [userProfile, setUserProfile] = useState(DEFAULT_USER_PROFILE);
+  const { user, signOut, updateProfile } = useAuth();
+  const { store, support } = useCatalog();
+  const [userProfile, setUserProfile] = useState({ name: '', email: '', phone: '' });
+
+  useEffect(() => {
+    if (!user) return;
+    setUserProfile({
+      name: user.fullName || user.name,
+      email: user.email,
+      phone: user.phone,
+    });
+  }, [user]);
+
+  const photoUrl = user?.avatarUrl && user.avatarUrl !== '-' ? user.avatarUrl : '';
+  const nameInitial = (userProfile.name || '').trim().charAt(0).toUpperCase() || '-';
 
   // Modal Sheet Visibility States
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -79,16 +97,19 @@ function AccountScreen({ navigation }) {
         {
           text: 'Sign Out',
           style: 'destructive',
-          onPress: () => {
-            navigation?.reset?.({
-              index: 0,
-              routes: [{ name: 'Login' }],
-            });
+          onPress: async () => {
+            await runWithLoading(async () => {
+              await signOut();
+              navigation?.reset?.({
+                index: 0,
+                routes: [{ name: 'Login' }],
+              });
+            }, 'Signing out...');
           },
         },
       ],
     );
-  }, [navigation]);
+  }, [navigation, signOut, runWithLoading]);
 
   // Section 1 Items: Account & Services
   const accountAndServicesItems = useMemo(() => [
@@ -121,23 +142,25 @@ function AccountScreen({ navigation }) {
       iconName: 'help-circle-outline',
       iconSize: 17,
       label: 'FAQ',
-      onPress: () => navigation?.navigate?.('Faq'),
+      onPress: () => navigateWithLoading(navigation, 'Faq', undefined, 'Opening FAQ...'),
     },
     {
       id: 'terms_of_service',
       iconName: 'information-circle-outline',
       iconSize: 17,
-      label: 'Terms of service',
-      onPress: () => navigation?.navigate?.('TermsOfService'),
+      label: 'Terms & Conditions',
+      onPress: () =>
+        navigateWithLoading(navigation, 'TermsOfService', undefined, 'Opening terms...'),
     },
     {
       id: 'user_policy',
       iconName: 'shield-checkmark-outline',
       iconSize: 16,
-      label: 'User policy',
-      onPress: () => navigation?.navigate?.('UserPolicy'),
+      label: 'Privacy Policy',
+      onPress: () =>
+        navigateWithLoading(navigation, 'UserPolicy', undefined, 'Opening policy...'),
     },
-  ], [navigation]);
+  ], [navigation, navigateWithLoading]);
 
   return (
     <GradientBackground className="flex-1">
@@ -165,14 +188,18 @@ function AccountScreen({ navigation }) {
         {/* User Profile Avatar & Name */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarBorder}>
-            <Image
-              source={require('../../../assets/userAvatar.jpg')}
-              style={styles.avatarImage}
-              resizeMode="cover"
-            />
+            {photoUrl ? (
+              <Image
+                source={{ uri: photoUrl }}
+                style={styles.avatarImage}
+                resizeMode="cover"
+              />
+            ) : (
+              <Text style={styles.avatarInitial}>{nameInitial}</Text>
+            )}
           </View>
 
-          <Text style={styles.userName}>{userProfile.name}</Text>
+          <Text style={styles.userName}>{dash(userProfile.name)}</Text>
         </View>
 
         {/* Section 1: Account & Services (Profile, Store Address, Support) */}
@@ -201,19 +228,29 @@ function AccountScreen({ navigation }) {
         visible={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         userProfile={userProfile}
-        onSave={(updated) => setUserProfile((prev) => ({ ...prev, ...updated }))}
+        onSave={async (updated) => {
+          const result = await updateProfile({
+            fullName: updated.name || updated.fullName,
+            phone: updated.phone,
+          });
+          if (result.success) {
+            setUserProfile((prev) => ({ ...prev, ...updated, name: result.data.fullName, phone: result.data.phone }));
+          }
+        }}
       />
 
       {/* Store Address Bottom Sheet */}
       <StoreAddressBottomSheet
         visible={isStoreModalOpen}
         onClose={() => setIsStoreModalOpen(false)}
+        store={store || undefined}
       />
 
       {/* Support Bottom Sheet */}
       <SupportBottomSheet
         visible={isSupportModalOpen}
         onClose={() => setIsSupportModalOpen(false)}
+        config={support || undefined}
       />
     </GradientBackground>
   );
@@ -233,6 +270,9 @@ const styles = StyleSheet.create({
     borderColor: colours.saffron || '#BF5B21',
     padding: 2.5,
     backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     shadowColor: colours.saffron || '#BF5B21',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.18,
@@ -244,6 +284,12 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 34,
+  },
+  avatarInitial: {
+    fontFamily: 'Comfortaa-Bold',
+    fontSize: 28,
+    color: colours.saffron || '#BF5B21',
+    textAlign: 'center',
   },
   userName: {
     fontFamily: 'Comfortaa-Bold',

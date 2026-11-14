@@ -11,9 +11,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import BottomSheet from './bottomSheet';
-import { STORE_DETAILS } from '../data';
-
-export { STORE_DETAILS };
+import { dash } from '../lib/text';
 
 const GOOGLE_MAPS_ICON = require('../assets/google_maps.png');
 
@@ -28,11 +26,12 @@ const GOOGLE_MAPS_ICON = require('../assets/google_maps.png');
 function StoreAddressBottomSheet({
   visible = false,
   onClose,
-  store = STORE_DETAILS,
+  store = {},
 }) {
   // Navigate directly to Google Maps app
   const handleOpenMaps = async () => {
     // Keep sheet open so when user returns from Maps, store phone, hours & landmark remain accessible
+    if (store.latitude == null || store.longitude == null || !store.mapsQuery) return;
     const query = encodeURIComponent(store.mapsQuery);
     const lat = store.latitude;
     const lng = store.longitude;
@@ -84,17 +83,17 @@ function StoreAddressBottomSheet({
       <View style={styles.container}>
         {/* Boutique Location & Hours Card */}
         <View style={styles.storeCard}>
-          <Text style={styles.storeName}>{store.name}</Text>
+          <Text style={styles.storeName}>{dash(store.name)}</Text>
           <Text style={styles.addressText}>
-            {store.addressLine1}, {store.addressLine2}
+            {dash([store.addressLine1, store.addressLine2].filter(Boolean).join(', '))}
           </Text>
-          <Text style={styles.landmarkText}>{store.landmark}</Text>
+          <Text style={styles.landmarkText}>{dash(store.landmark)}</Text>
 
           <View style={styles.divider} />
 
           <View style={styles.timingsRow}>
             <View style={styles.statusDot} />
-            <Text style={styles.timingsText}>{store.timings}</Text>
+            <Text style={styles.timingsText}>{dash(store.timings)}</Text>
           </View>
         </View>
 

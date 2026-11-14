@@ -13,9 +13,12 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../../../assets/colours';
 import GradientBackground from '../../../components/gradientBackground';
 import BackButton from '../../../components/backButton';
-import { FAQ_DATA } from '../../../data';
+import { SectionLoader } from '../../../components/loadingSpinner';
+import { useCatalog } from '../../../context/catalogContext';
 
 function FaqScreen({ navigation }) {
+  const { faq, loading } = useCatalog();
+  const items = faq;
   const insets = useSafeAreaInsets();
   const topInset = Math.max(
     insets.top,
@@ -109,15 +112,21 @@ function FaqScreen({ navigation }) {
             shadowRadius: 6,
             elevation: 2,
           }}>
-          {FAQ_DATA.map((item, index) => {
-            const isExpanded = expandedId === item.id;
-            const isLast = index === FAQ_DATA.length - 1;
+          {loading && items.length === 0 ? (
+            <SectionLoader message="Loading FAQ..." minHeight={120} />
+          ) : null}
+          {!loading && items.length === 0 ? (
+            <Text style={{ paddingVertical: 16, color: '#70685E' }}>No FAQs available yet.</Text>
+          ) : null}
+          {items.map((item, index) => {
+            const isExpanded = expandedId === (item.id || item.question);
+            const isLast = index === items.length - 1;
 
             return (
-              <View key={item.id}>
+              <View key={item.id || item.question}>
                 <TouchableOpacity
                   activeOpacity={0.7}
-                  onPress={() => toggleExpand(item.id)}
+                  onPress={() => toggleExpand(item.id || item.question)}
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',

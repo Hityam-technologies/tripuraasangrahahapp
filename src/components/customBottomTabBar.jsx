@@ -327,7 +327,12 @@ function CustomBottomTabBar({ state, descriptors, navigation }) {
               });
 
               if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
+                // jumpTo triggers the built-in tab screen animation for every tab
+                if (typeof navigation.jumpTo === 'function') {
+                  navigation.jumpTo(route.name);
+                } else {
+                  navigation.navigate(route.name);
+                }
               }
             };
 

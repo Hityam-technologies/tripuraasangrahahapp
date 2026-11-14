@@ -43,7 +43,7 @@ function resolveCategoryIcon(tab) {
  *
  * @param {string} activeCategory - Currently active category id
  * @param {function} onSelectCategory - Callback when a category is pressed: (id) => void
- * @param {Array} categories - Optional custom categories list, defaults to APP_CATEGORIES
+ * @param {Array} categories - Category list from the catalog API (includes All)
  * @param {object} style - Optional style on the outer ScrollView / container
  * @param {object} contentContainerStyle - Optional style for inner scroll container
  */

@@ -5,7 +5,6 @@ import {
   Image,
   Platform,
   StatusBar,
-  StyleSheet,
   Text,
   TouchableOpacity,
   useWindowDimensions,
@@ -125,33 +124,13 @@ function SplashScreen({ navigation }) {
     return undefined;
   }, [ready, user, forceUpdate, moveAnim, onboardingFade, navigation]);
 
-  // While the logo glides from middle to top-left, progressively remove the splash background
-  const bgOpacity = moveAnim.interpolate({
-    inputRange: [0, 0.75, 1],
-    outputRange: [1, 0.25, 0],
-  });
-
   return (
-    <View style={{ flex: 1, backgroundColor: '#000000' }}>
+    <GradientBackground idPrefix="splash_" className="flex-1">
       <StatusBar
-        barStyle="light-content"
+        barStyle="dark-content"
         backgroundColor="transparent"
         translucent
       />
-
-      {/* =========================================================================
-          BACKGROUND LAYER:
-          Full luxury GradientBackground while logo is centered.
-          Progressively fades out and is removed as the logo moves to top-left!
-         ========================================================================= */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFillObject,
-          { opacity: bgOpacity },
-        ]}>
-        <GradientBackground idPrefix="splash_" className="flex-1" />
-      </Animated.View>
 
       {/* =========================================================================
           ANIMATED BRAND LOGO
@@ -267,7 +246,7 @@ function SplashScreen({ navigation }) {
           </TouchableOpacity>
         </Animated.View>
       )}
-    </View>
+    </GradientBackground>
   );
 }
 

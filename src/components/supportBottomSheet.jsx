@@ -11,9 +11,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import BottomSheet from './bottomSheet';
-import { SUPPORT_CONFIG } from '../data';
-
-export { SUPPORT_CONFIG };
+import { dash } from '../lib/text';
 
 const INSTAGRAM_LOGO = require('../assets/Instagramlogo.jpg');
 
@@ -29,11 +27,12 @@ const INSTAGRAM_LOGO = require('../assets/Instagramlogo.jpg');
 function SupportBottomSheet({
   visible = false,
   onClose,
-  config = SUPPORT_CONFIG,
+  config = {},
 }) {
   // Navigate directly to WhatsApp app
   const handleWhatsApp = async () => {
     const phone = config.whatsappPhone;
+    if (!phone) return;
     const text = encodeURIComponent(config.whatsappMessage);
     const appUrl = `whatsapp://send?phone=${phone}&text=${text}`;
     const webUrl = `https://wa.me/${phone.replace(/[^0-9]/g, '')}?text=${text}`;
@@ -55,6 +54,7 @@ function SupportBottomSheet({
   // Navigate directly to Instagram app
   const handleInstagram = async () => {
     const username = config.instagramUsername;
+    if (!username) return;
     const appUrl = `instagram://user?username=${username}`;
     const webUrl = `https://www.instagram.com/${username}/`;
 
@@ -74,6 +74,7 @@ function SupportBottomSheet({
 
   // Navigate directly to Phone dialer
   const handleCallHelpline = async () => {
+    if (!config.helplinePhone) return;
     const telUrl = `tel:${config.helplinePhone}`;
 
     try {

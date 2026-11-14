@@ -34,6 +34,10 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Tripuraa uses the camera so you can take a portrait for the AI drape studio.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Tripuraa uses your photo library so you can choose a portrait for the AI drape studio.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string></string>
 	<key>RCTNewArchEnabled</key>

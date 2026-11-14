@@ -10,6 +10,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import BottomSheet from './bottomSheet';
+import { dash } from '../lib/text';
 
 /**
  * ProfileEditBottomSheet Component
@@ -29,8 +30,8 @@ function ProfileEditBottomSheet({
   const current = userProfile || initialProfile || {};
   const [name, setName] = useState(current.name || '');
 
-  const email = current.email || 'samyuktha.rao@heritage.in';
-  const phone = current.phone || '+91 98765 43210';
+  const email = dash(current.email);
+  const phone = dash(current.phone);
 
   useEffect(() => {
     if (visible) {

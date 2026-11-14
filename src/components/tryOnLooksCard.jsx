@@ -10,7 +10,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import { useTryOn } from '../context/tryOnContext';
-import { MASTER_COLLECTIONS, getSareeById } from '../data';
+import { useCatalog } from '../context/catalogContext';
 
 const CARD_WIDTH = 124;
 const CARD_HEIGHT = 160;
@@ -32,17 +32,16 @@ function TryOnLooksCard({
   onOpenStudio,
 }) {
   const { tryOnLooks, userPhoto } = useTryOn();
+  const { getSaree } = useCatalog();
 
   const handleOpenLook = (look) => {
-    const fullSaree =
-      getSareeById(look.sareeId) ||
-      MASTER_COLLECTIONS.find((s) => s.id === look.sareeId) || {
-        id: look.sareeId,
-        title: look.sareeTitle,
-        price: look.sareePrice,
-        image: look.flatImage,
-        tryOnImage: look.drapeImage,
-      };
+    const fullSaree = getSaree(look.sareeId) || {
+      id: look.sareeId,
+      title: look.sareeTitle || '-',
+      price: look.sareePrice || '-',
+      image: look.flatImage,
+      tryOnImage: look.drapeImage,
+    };
 
     if (onOpenStudio) {
       onOpenStudio(fullSaree);
@@ -56,9 +55,7 @@ function TryOnLooksCard({
 
   const handleTryNew = () => {
     if (navigation?.navigate) {
-      navigation.navigate('TryOnTab', {
-        product: MASTER_COLLECTIONS[0],
-      });
+      navigation.navigate('TryOnTab');
     }
   };
 
@@ -106,20 +103,24 @@ function TryOnLooksCard({
               style={styles.lookCard}>
               {/* Image Box - Strictly bounded dimensions */}
               <View style={styles.imageHolder}>
-                <Image
-                  source={look.drapeImage || userPhoto}
-                  style={styles.lookImage}
-                  resizeMode="cover"
-                />
+                {look.drapeImage || userPhoto ? (
+                  <Image
+                    source={look.drapeImage || userPhoto}
+                    style={styles.lookImage}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Text style={styles.lookTitle}>-</Text>
+                )}
               </View>
 
               {/* Look Info */}
               <View style={styles.infoBox}>
                 <Text style={styles.lookTitle} numberOfLines={1}>
-                  {look.sareeTitle}
+                  {look.sareeTitle || '-'}
                 </Text>
                 <View style={styles.priceRow}>
-                  <Text style={styles.lookPrice}>{look.sareePrice}</Text>
+                  <Text style={styles.lookPrice}>{look.sareePrice || '-'}</Text>
                   <View style={styles.tryOnPill}>
                     <Text style={styles.tryOnPillText}>Try On</Text>
                   </View>

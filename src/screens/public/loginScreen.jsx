@@ -6,6 +6,8 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../../assets/colours';
 import AuthHeader from '../../components/authHeader';
 import InputBox from '../../components/inputBox';
+import { ButtonSpinner, LoadingOverlay } from '../../components/loadingSpinner';
+import { useAuth } from '../../context/authContext';
 
 /**
  * LoginScreen
@@ -13,18 +15,23 @@ import InputBox from '../../components/inputBox';
  */
 function LoginScreen({ navigation }) {
   const insets = useSafeAreaInsets();
+  const { login, forgotPassword } = useAuth();
+  const [submitting, setSubmitting] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   const [email, setEmail] = useState('');
   const [emailError, setEmailError] = useState('');
   const [password, setPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const busy = submitting || resetting;
 
   const validateEmail = (val) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
   };
 
-  const handleForgotPassword = () => {
+  const handleForgotPassword = async () => {
+    if (busy) return;
     if (!email.trim()) {
       setEmailError('Please enter your email to reset password');
       return;
@@ -34,14 +41,24 @@ function LoginScreen({ navigation }) {
       return;
     }
     setEmailError('');
-    navigation?.navigate?.('Otp', {
-      email: email.trim(),
-      isForgotPassword: true,
-      isRegistration: false,
-    });
+    setResetting(true);
+    try {
+      const result = await forgotPassword(email.trim());
+      if (!result.success) {
+        setEmailError(result.error?.message || 'The reset code could not be sent.');
+        return;
+      }
+      navigation?.navigate?.('Otp', {
+        email: email.trim(),
+        isForgotPassword: true,
+        isRegistration: false,
+      });
+    } finally {
+      setResetting(false);
+    }
   };
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     let valid = true;
     if (!email.trim()) {
       setEmailError('Please enter your email address');
@@ -63,18 +80,27 @@ function LoginScreen({ navigation }) {
       setPasswordError('');
     }
 
-    if (valid) {
-      console.log('Signing in with email & password:', email.trim());
-      navigation?.reset?.({
-        index: 0,
-        routes: [{ name: 'MainTabs' }],
-      });
+    if (!valid || busy) return;
+    setSubmitting(true);
+    try {
+      const result = await login({ email: email.trim(), password });
+      if (!result.success) {
+        setPasswordError(result.error?.message || 'Sign in failed.');
+        return;
+      }
+      navigation?.reset?.({ index: 0, routes: [{ name: 'MainTabs' }] });
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
     <View className="flex-1 bg-white">
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      <LoadingOverlay
+        visible={busy}
+        message={resetting ? 'Sending reset code...' : 'Signing you in...'}
+      />
 
       <KeyboardAwareScrollView
         className="flex-1 bg-white"
@@ -148,11 +174,12 @@ function LoginScreen({ navigation }) {
 
               <TouchableOpacity
                 activeOpacity={0.7}
+                disabled={busy}
                 onPress={handleForgotPassword}
                 className="self-end mt-1 mb-2">
                 <Text
                   className="font-manrope-bold text-xs leading-[18px] underline pr-1"
-                  style={{ color: colours.saffron }}>
+                  style={{ color: colours.saffron, opacity: busy ? 0.5 : 1 }}>
                   Forgot Password?
                 </Text>
               </TouchableOpacity>
@@ -162,14 +189,22 @@ function LoginScreen({ navigation }) {
           <View className="mt-8 mb-4">
             <TouchableOpacity
               activeOpacity={0.88}
+              disabled={busy}
               onPress={handleLogin}
               className="w-full rounded-2xl h-14 items-center justify-center mb-4 shadow-md"
-              style={{ backgroundColor: colours.primary }}>
-              <Text
-                className="font-manrope-bold text-base leading-[22px] pr-1"
-                style={{ color: colours.white }}>
-                Sign In
-              </Text>
+              style={{
+                backgroundColor: colours.primary,
+                opacity: busy ? 0.85 : 1,
+              }}>
+              {submitting ? (
+                <ButtonSpinner />
+              ) : (
+                <Text
+                  className="font-manrope-bold text-base leading-[22px] pr-1"
+                  style={{ color: colours.white }}>
+                  Sign In
+                </Text>
+              )}
             </TouchableOpacity>
 
             <Text className="font-manrope text-sm leading-[22px] text-gray-500 text-center pr-1">

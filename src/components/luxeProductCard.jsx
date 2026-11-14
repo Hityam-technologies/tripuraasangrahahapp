@@ -89,7 +89,7 @@ function LuxeProductCard({
             lineHeight: 20,
             color: '#14121E',
           }}>
-          {item.brand}
+          {item.collectionLine || item.productCode || 'Tripuraa Sangrahah'}
         </Text>
         <Text
           numberOfLines={2}
@@ -101,15 +101,6 @@ function LuxeProductCard({
             color: '#14121E',
           }}>
           {item.title}
-        </Text>
-        <Text
-          className="font-manrope-extrabold text-xl text-[#14121E]"
-          style={{
-            fontFamily: 'Manrope-ExtraBold',
-            fontSize: 20,
-            color: '#14121E',
-          }}>
-          {item.price}
         </Text>
       </View>
     </TouchableOpacity>

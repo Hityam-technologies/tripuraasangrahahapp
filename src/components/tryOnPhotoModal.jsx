@@ -20,34 +20,35 @@ import { useTryOn } from '../context/tryOnContext';
  * Clean, minimal, and directly updates the user's drape fitting photo.
  */
 function TryOnPhotoModal({ visible = false, onClose }) {
-  const { changeUserPhoto } = useTryOn();
+  const { uploadPortrait } = useTryOn();
 
-  const handleTakePhoto = () => {
-    changeUserPhoto({
-      id: `photo_camera_${Date.now()}`,
-      name: 'Camera Portrait',
-      label: 'Photo',
-      source: require('../assets/userAvatar.jpg'),
-    });
-    Alert.alert(
-      'Photo Captured',
-      'Your portrait has been updated for AI saree draping.',
-    );
+  const pickPhoto = async (source) => {
+    let picker;
+    try {
+      picker = require('react-native-image-picker');
+    } catch {
+      Alert.alert('Photo', 'The photo library is not available in this build yet.');
+      return;
+    }
+    const launch = source === 'camera' ? picker.launchCamera : picker.launchImageLibrary;
+    const result = await launch({ mediaType: 'photo', quality: 0.85, saveToPhotos: false });
+    const asset = result?.assets?.[0];
+    if (!asset?.uri) return;
+    const uploaded = await uploadPortrait(asset);
+    if (!uploaded.success) {
+      Alert.alert('Photo', uploaded.error?.message || 'The portrait could not be saved.');
+      return;
+    }
+    Alert.alert('Photo saved', 'Your portrait is ready for AI saree draping.');
     onClose?.();
   };
 
+  const handleTakePhoto = () => {
+    pickPhoto('camera');
+  };
+
   const handleChoosePhoto = () => {
-    changeUserPhoto({
-      id: `photo_gallery_${Date.now()}`,
-      name: 'Gallery Portrait',
-      label: 'Photo',
-      source: require('../assets/category_saree.jpg'),
-    });
-    Alert.alert(
-      'Photo Selected',
-      'Your photo from gallery has been selected for AI saree draping.',
-    );
-    onClose?.();
+    pickPhoto('library');
   };
 
   return (

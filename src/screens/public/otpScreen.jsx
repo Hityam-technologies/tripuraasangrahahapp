@@ -12,6 +12,7 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import colours from '../../assets/colours';
 import AuthHeader from '../../components/authHeader';
+import { useAuth } from '../../context/authContext';
 
 const OTP_LENGTH = 6;
 const RESEND_TIMER_SECONDS = 30;
@@ -21,6 +22,7 @@ const RESEND_TIMER_SECONDS = 30;
  */
 function OtpScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
+  const { verifyOtp, resendOtp } = useAuth();
   const {
     email = 'user@example.com',
     phone = '',
@@ -68,30 +70,37 @@ function OtpScreen({ navigation, route }) {
     inputRef.current?.focus();
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (otp.length < OTP_LENGTH) {
       setError('Please enter the full 6-digit code');
       return;
     }
     setError('');
     setLoading(true);
-
-    setTimeout(() => {
+    if (isForgotPassword) {
       setLoading(false);
-      console.log('OTP Verified successfully:', otp, 'For Email:', email, 'Phone:', phone);
-      navigation?.reset?.({
-        index: 0,
-        routes: [{ name: 'MainTabs' }],
-      });
-    }, 1000);
+      navigation?.navigate?.('ResetPassword', { email, code: otp });
+      return;
+    }
+    const result = await verifyOtp({ email, code: otp, purpose: 'registration' });
+    setLoading(false);
+    if (!result.success) {
+      setError(result.error?.message || 'That code could not be verified.');
+      return;
+    }
+    navigation?.reset?.({ index: 0, routes: [{ name: 'MainTabs' }] });
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
     setCanResend(false);
     setTimer(RESEND_TIMER_SECONDS);
     setError('');
-    console.log('Resending verification code to email:', email);
+    const result = await resendOtp({
+      email,
+      purpose: isForgotPassword ? 'forgot-password' : 'registration',
+    });
+    if (!result.success) setError(result.error?.message || 'A new code could not be sent.');
   };
 
   return (

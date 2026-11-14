@@ -5,27 +5,51 @@
  */
 
 import React from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/appNavigator';
+import MaintenanceScreen from './src/components/maintenanceScreen';
+import { AuthProvider, useAuth } from './src/context/authContext';
+import { CatalogProvider } from './src/context/catalogContext';
 import { WardrobeProvider } from './src/context/wardrobeContext';
 import { TryOnProvider } from './src/context/tryOnContext';
 import { TabBarProvider } from './src/context/tabBarContext';
+import { LoadingProvider } from './src/context/loadingContext';
+
+function AppShell() {
+  const { maintenance } = useAuth();
+
+  if (maintenance.active) {
+    return <MaintenanceScreen notice={maintenance.notice} />;
+  }
+
+  return (
+    <View style={{ flex: 1 }}>
+      <LoadingProvider>
+        <CatalogProvider>
+          <WardrobeProvider>
+            <TryOnProvider>
+              <TabBarProvider>
+                <NavigationContainer>
+                  <AppNavigator />
+                </NavigationContainer>
+              </TabBarProvider>
+            </TryOnProvider>
+          </WardrobeProvider>
+        </CatalogProvider>
+      </LoadingProvider>
+    </View>
+  );
+}
 
 function App() {
   return (
     <SafeAreaProvider>
       <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
-      <WardrobeProvider>
-        <TryOnProvider>
-          <TabBarProvider>
-            <NavigationContainer>
-              <AppNavigator />
-            </NavigationContainer>
-          </TabBarProvider>
-        </TryOnProvider>
-      </WardrobeProvider>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }
