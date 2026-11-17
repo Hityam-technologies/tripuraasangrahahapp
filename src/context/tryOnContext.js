@@ -10,6 +10,16 @@ export function TryOnProvider({ children }) {
   const [tryOnLooks, setTryOnLooks] = useState([]);
   const [drapeStatus, setDrapeStatus] = useState('');
   const [lastJobId, setLastJobId] = useState(null);
+  const [tryOnWallet, setTryOnWallet] = useState(null);
+
+  const refreshWallet = useCallback(async () => {
+    if (!user) {
+      setTryOnWallet(null);
+      return;
+    }
+    const result = await apiCall('get', '/try-on/wallet');
+    if (result.success) setTryOnWallet(result.data);
+  }, [user]);
 
   const refreshLooks = useCallback(async () => {
     if (!user) {
@@ -29,6 +39,7 @@ export function TryOnProvider({ children }) {
 
   useEffect(() => {
     refreshLooks();
+    refreshWallet();
     if (!user) return undefined;
     apiCall('get', '/users/me/drape-profiles').then((result) => {
       const first = result.success ? result.data?.[0] : null;
@@ -41,7 +52,7 @@ export function TryOnProvider({ children }) {
       });
     });
     return undefined;
-  }, [user, refreshLooks]);
+  }, [user, refreshLooks, refreshWallet]);
 
   // Change or update the saved photo
   const changeUserPhoto = useCallback((profileOrSource) => {
@@ -92,6 +103,7 @@ export function TryOnProvider({ children }) {
       setDrapeStatus(started.error?.message || 'The drape could not be started.');
       return null;
     }
+    if (started.data.wallet) setTryOnWallet(started.data.wallet);
     const jobId = started.data.jobId;
     setLastJobId(jobId);
     const startedAt = Date.now();
@@ -103,10 +115,12 @@ export function TryOnProvider({ children }) {
       }
       if (job.data.status === 'completed') {
         setDrapeStatus('');
+        refreshWallet();
         return imageSource(job.data.drapeImageUrl);
       }
       if (['failed', 'canceled', 'timed_out'].includes(job.data.status)) {
         setDrapeStatus(job.data.error?.message || 'The drape could not be created.');
+        refreshWallet();
         return null;
       }
       setDrapeStatus(job.data.status === 'processing' ? 'Draping the saree...' : 'Waiting for the studio...');
@@ -114,7 +128,7 @@ export function TryOnProvider({ children }) {
     }
     setDrapeStatus('The drape took too long. Please try again.');
     return null;
-  }, [activeProfile]);
+  }, [activeProfile, refreshWallet]);
 
   const saveTryOnLook = useCallback(async (look) => {
     if (lastJobId) {
@@ -156,6 +170,7 @@ export function TryOnProvider({ children }) {
       changeUserPhoto,
       tryOnLooks,
       drapeStatus,
+      tryOnWallet,
       uploadPortrait,
       generateDrape,
       saveTryOnLook,
@@ -167,6 +182,7 @@ export function TryOnProvider({ children }) {
       changeUserPhoto,
       tryOnLooks,
       drapeStatus,
+      tryOnWallet,
       uploadPortrait,
       generateDrape,
       saveTryOnLook,

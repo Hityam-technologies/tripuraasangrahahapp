@@ -14,6 +14,8 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import { apiCall } from '../api/client';
+import { useTryOn } from '../context/tryOnContext';
+import { tryOnOfferLine } from '../lib/text';
 
 /**
  * TryOnConfirmModal
@@ -22,6 +24,7 @@ import { apiCall } from '../api/client';
  */
 function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel }) {
   const navigation = useNavigation();
+  const { tryOnWallet } = useTryOn();
   const [consent, setConsent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -102,6 +105,9 @@ function TryOnConfirmModal({ visible = false, saree = null, onConfirm, onCancel 
               <Text style={styles.subtitle}>
                 Review these Terms highlights, then agree to continue to the AI Drape Studio.
               </Text>
+              {tryOnWallet ? (
+                <Text style={styles.walletLine}>{tryOnOfferLine(tryOnWallet)}</Text>
+              ) : null}
 
               <View style={styles.previewBox}>
                 {sareeImage ? (
@@ -284,6 +290,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginBottom: 14,
     paddingHorizontal: 6,
+  },
+  walletLine: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 12,
+    color: '#6B645C',
+    textAlign: 'center',
+    marginTop: -6,
+    marginBottom: 12,
   },
   previewBox: {
     width: '100%',

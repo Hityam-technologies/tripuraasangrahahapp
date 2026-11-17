@@ -19,6 +19,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import ScreenHeader from '../../../components/screenHeader';
 import GradientBackground from '../../../components/gradientBackground';
 import colours from '../../../assets/colours';
+import { tryOnOfferLine } from '../../../lib/text';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useTryOn } from '../../../context/tryOnContext';
 import { useCatalog } from '../../../context/catalogContext';
@@ -47,7 +48,7 @@ function TryOnScreen({ navigation, route }) {
 
   const { hideTabBar, showTabBar } = useTabBar();
   const { getSaree, sarees } = useCatalog();
-  const { userPhoto, saveTryOnLook, removeTryOnLook, isLookSaved, generateDrape, drapeStatus } = useTryOn();
+  const { userPhoto, saveTryOnLook, removeTryOnLook, isLookSaved, generateDrape, drapeStatus, tryOnWallet } = useTryOn();
   const alive = useRef(true);
   const [drapeOverride, setDrapeOverride] = useState(null);
 
@@ -255,6 +256,10 @@ function TryOnScreen({ navigation, route }) {
         }
       />
 
+      {tryOnWallet ? (
+        <Text style={styles.walletLine}>{tryOnOfferLine(tryOnWallet)}</Text>
+      ) : null}
+
       {/* =========================================================================
           2. MINIMAL USER PHOTO BAR: PHOTO + CHANGE OPTION ONLY
          ========================================================================= */}
@@ -449,6 +454,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 1,
+  },
+  walletLine: {
+    textAlign: 'center',
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 12,
+    color: '#6B645C',
+    marginTop: 4,
+    marginBottom: 2,
   },
   userPhotoRow: {
     flexDirection: 'row',
