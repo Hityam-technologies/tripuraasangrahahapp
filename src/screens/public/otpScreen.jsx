@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../../assets/colours';
 import AuthHeader from '../../components/authHeader';
 import { useAuth } from '../../context/authContext';
@@ -26,6 +27,9 @@ function OtpScreen({ navigation, route }) {
   const {
     email = 'user@example.com',
     phone = '',
+    referralCode = '',
+    referrerName = '',
+    instantCash = 0,
     isForgotPassword = false,
   } = route?.params || {};
 
@@ -82,7 +86,11 @@ function OtpScreen({ navigation, route }) {
       navigation?.navigate?.('ResetPassword', { email, code: otp });
       return;
     }
-    const result = await verifyOtp({ email, code: otp, purpose: 'registration' });
+    const payload = { email, code: otp, purpose: 'registration' };
+    if (referralCode) {
+      payload.referralCode = referralCode;
+    }
+    const result = await verifyOtp(payload);
     setLoading(false);
     if (!result.success) {
       setError(result.error?.message || 'That code could not be verified.');
@@ -136,6 +144,21 @@ function OtpScreen({ navigation, route }) {
               <Text className="font-manrope-bold text-base leading-6 text-gray-900 mt-1">
                 {email}
               </Text>
+              {referralCode ? (
+                <View className="flex-row items-center bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-1.5 mt-2.5 self-start">
+                  <Icon
+                    name="checkmark-circle"
+                    size={13}
+                    color="#10B981"
+                  />
+                  <Text className="font-manrope-semibold text-xs ml-1.5 text-emerald-800">
+                    {referrerName
+                      ? `Referred by ${referrerName} (${referralCode})`
+                      : `Referral code: ${referralCode}`}
+                    {Number(instantCash) > 0 ? ` · ₹${Number(instantCash).toLocaleString('en-IN')} after verify` : ''}
+                  </Text>
+                </View>
+              ) : null}
             </View>
 
             {/* 6-Digit OTP Boxes */}

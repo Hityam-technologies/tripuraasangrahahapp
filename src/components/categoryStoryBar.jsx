@@ -59,13 +59,13 @@ export function CategoryStoryBar({
   const isTablet = screenWidth >= 600;
 
   const circleSize = isSmallDevice ? 62 : 70;
-  const itemWidth = isSmallDevice ? 84 : 94;
+  const itemWidth = isSmallDevice ? 86 : 98;
   const gap = isSmallDevice ? 8 : 12;
   const defaultHPadding = isSmallDevice ? 12 : isTablet ? 20 : 15;
   const hPad =
     contentContainerStyle &&
-    typeof contentContainerStyle === 'object' &&
-    'paddingHorizontal' in contentContainerStyle
+      typeof contentContainerStyle === 'object' &&
+      'paddingHorizontal' in contentContainerStyle
       ? contentContainerStyle.paddingHorizontal
       : defaultHPadding;
 
@@ -144,8 +144,8 @@ export function CategoryStoryBar({
                   backgroundColor: tab.image
                     ? '#F3EFE8'
                     : isActive
-                    ? '#FFF5EB'
-                    : '#FAF7F2',
+                      ? '#FFF5EB'
+                      : '#FAF7F2',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}>
@@ -172,15 +172,12 @@ export function CategoryStoryBar({
             {/* Category Label: Strictly One Word on One Single Line */}
             <Text
               numberOfLines={1}
-              ellipsizeMode="clip"
               style={{
-                fontFamily: isActive
-                  ? 'Comfortaa-Bold'
-                  : 'Comfortaa-Medium',
-                fontSize: isSmallDevice ? 11.5 : 12.5,
+                fontFamily: 'Manrope-Bold',
+                fontSize: isSmallDevice ? 13.5 : 14.8,
                 color: isActive
                   ? colours.saffron || '#BF5B21'
-                  : '#5E574E',
+                  : '#443D34',
                 textAlign: 'center',
                 letterSpacing: -0.2,
               }}>
@@ -189,7 +186,7 @@ export function CategoryStoryBar({
           </TouchableOpacity>
         );
       })}
-    </ScrollView>
+    </ScrollView >
   );
 }
 

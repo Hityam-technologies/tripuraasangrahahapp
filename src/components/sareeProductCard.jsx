@@ -281,8 +281,8 @@ function SareeProductCard({
     Array.isArray(product.images) && product.images.length > 0
       ? product.images
       : product.image
-      ? [product.image]
-      : [];
+        ? [product.image]
+        : [];
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [imageWidth, setImageWidth] = useState(cardWidth || 0);

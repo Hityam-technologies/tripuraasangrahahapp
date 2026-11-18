@@ -93,12 +93,13 @@ function LuxeProductCard({
         </Text>
         <Text
           numberOfLines={2}
-          className="font-manrope-bold text-lg leading-[23px] text-[#14121E] mt-0.5 mb-2"
           style={{
-            fontFamily: 'Manrope-Bold',
-            fontSize: 18,
-            lineHeight: 23,
+            fontFamily: 'Comfortaa-Bold',
+            fontSize: 17,
+            lineHeight: 22,
             color: '#14121E',
+            marginTop: 2,
+            marginBottom: 8,
           }}>
           {item.title}
         </Text>

@@ -5,7 +5,6 @@ import {
   Dimensions,
   Easing,
   Image,
-  Linking,
   Modal,
   PanResponder,
   Platform,
@@ -27,6 +26,7 @@ import { dash } from '../../lib/text';
 import TryOnConfirmModal from '../../components/tryOnConfirmModal';
 import { ButtonSpinner, SectionLoader } from '../../components/loadingSpinner';
 import { useWishlist } from '../../context/wishlistContext';
+import { useCart } from '../../context/cartContext';
 import { useCatalog } from '../../context/catalogContext';
 import { apiCall } from '../../api/client';
 import { presentSaree } from '../../api/media';
@@ -321,7 +321,7 @@ function CardDetailScreen({ navigation, route }) {
   const screenWidth = windowWidth || Dimensions.get('window').width || 390;
   const screenHeight = windowHeight || Dimensions.get('window').height || 844;
 
-  const { sarees, getSaree, support } = useCatalog();
+  const { sarees, getSaree } = useCatalog();
 
   const passedProduct = route?.params?.product;
   const sareeId = route?.params?.sareeId || passedProduct?.id || '';
@@ -346,9 +346,12 @@ function CardDetailScreen({ navigation, route }) {
   const bottomSheetCarouselRef = useRef(null);
   const modalScrollRef = useRef(null);
 
-  // Global Wishlist
+  // Global Wishlist & Cart
   const { wishlist, toggleWishlist } = useWishlist();
   const isWishlisted = !!(currentProduct?.id && wishlist[currentProduct.id]);
+  const { addToCart, isInCart } = useCart();
+  const alreadyInCart = !!(currentProduct?.id && isInCart(currentProduct.id));
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
 
   const imageList =
     Array.isArray(currentProduct?.images) && currentProduct.images.length > 0
@@ -643,7 +646,7 @@ function CardDetailScreen({ navigation, route }) {
             <View style={styles.handleBar} />
           </View>
 
-          {/* Top-Right: Share & Like Buttons beside each other */}
+          {/* Top-Right: Share & Like Buttons */}
           <View style={styles.topActionsRow}>
             {/* Share Button */}
             <TouchableOpacity
@@ -860,27 +863,55 @@ function CardDetailScreen({ navigation, route }) {
           </ScrollView>
 
           {/* ===================================================================
-              FIXED BOTTOM ACTION: WhatsApp Concierge Order Button
+              FIXED BOTTOM ACTION: Single "Add to Cart" CTA
              =================================================================== */}
-          {support?.whatsappPhone ? (
-            <View style={styles.fixedBottomContainer}>
-              <TouchableOpacity
-                activeOpacity={0.88}
-                onPress={() => {
-                  const digits = String(support.whatsappPhone).replace(/[^0-9]/g, '');
-                  const text = encodeURIComponent(
-                    `Hello Tripuraa Sangrahah, I would like to order "${currentProduct.title || 'this saree'}"${currentProduct.productCode ? ` (Code: ${currentProduct.productCode})` : ''}.`,
-                  );
-                  Linking.openURL(`https://wa.me/${digits}?text=${text}`).catch(() => null);
-                }}
-                style={styles.orderBtn}
-                accessibilityRole="button"
-                accessibilityLabel="To order via WhatsApp">
-                <Icon name="logo-whatsapp" size={17} color="#161413" />
-                <Text style={styles.orderBtnText}>To Order • WhatsApp</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
+          <View style={styles.fixedBottomContainer}>
+            <TouchableOpacity
+              activeOpacity={0.88}
+              disabled={isAddingToCart}
+              onPress={async () => {
+                if (alreadyInCart) {
+                  handleClose();
+                  setTimeout(() => navigation?.navigate?.('Cart'), 240);
+                } else {
+                  setIsAddingToCart(true);
+                  try {
+                    await addToCart(currentProduct);
+                  } finally {
+                    setIsAddingToCart(false);
+                  }
+                }
+              }}
+              style={[
+                styles.addToCartBtn,
+                alreadyInCart && styles.alreadyInCartBtn,
+                isAddingToCart && { opacity: 0.9 },
+              ]}
+              accessibilityRole="button"
+              accessibilityLabel={alreadyInCart ? 'In cart' : 'Add to cart'}>
+              {isAddingToCart ? (
+                <>
+                  <ButtonSpinner color="#FFFFFF" />
+                  <Text style={styles.addToCartBtnText}>Adding...</Text>
+                </>
+              ) : (
+                <>
+                  <Icon
+                    name={alreadyInCart ? 'cart' : 'cart-outline'}
+                    size={18}
+                    color="#FFFFFF"
+                  />
+                  <Text
+                    style={[
+                      styles.addToCartBtnText,
+                      alreadyInCart && styles.alreadyInCartBtnText,
+                    ]}>
+                    {alreadyInCart ? 'In Cart' : 'Add to Cart'}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
           </>
           )}
       </Animated.View>
@@ -1099,6 +1130,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ECE7DE',
     zIndex: 2,
+    position: 'relative',
   },
   scrollContent: {
     paddingTop: 4,
@@ -1277,30 +1309,38 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   fixedBottomContainer: {
-    paddingTop: 8,
+    paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#F0ECE4',
     backgroundColor: '#FFFFFF',
   },
-  orderBtn: {
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#25D366',
+  addToCartBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colours.saffron || '#BF5B21',
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 8,
-    shadowColor: '#25D366',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.18,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowColor: colours.saffron || '#BF5B21',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 3,
   },
-  orderBtnText: {
+  alreadyInCartBtn: {
+    backgroundColor: '#161413',
+    shadowColor: '#161413',
+  },
+  addToCartBtnText: {
     fontFamily: 'Manrope-Bold',
-    fontSize: 13,
-    color: '#161413',
-    letterSpacing: 0.2,
+    fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+  alreadyInCartBtnText: {
+    color: '#FFFFFF',
   },
   modalBackdrop: {
     flex: 1,

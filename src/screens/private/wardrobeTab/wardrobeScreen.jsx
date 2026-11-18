@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Dimensions,
   Image,
   Platform,
@@ -24,6 +23,7 @@ import { useTryOn } from '../../../context/tryOnContext';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useCatalog } from '../../../context/catalogContext';
 import { useLoading } from '../../../context/loadingContext';
+import { usePopup } from '../../../context/popupContext';
 import { SectionLoader } from '../../../components/loadingSpinner';
 
 /**
@@ -89,6 +89,7 @@ function WardrobeScreen({ navigation }) {
   const { getSaree, loading: catalogLoading } = useCatalog();
   const { hideTabBar, showTabBar } = useTabBar();
   const { navigateWithLoading } = useLoading();
+  const { showConfirm } = usePopup();
   const lastScrollY = useRef(0);
 
   const openProduct = (prod) => {
@@ -133,18 +134,14 @@ function WardrobeScreen({ navigation }) {
       : tryOnLooks.length > 0;
 
   const handleRemoveLook = (sareeId, title) => {
-    Alert.alert(
-      'Remove Look',
-      `Remove "${title}" from your saved try-on looks?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: () => removeTryOnLook(sareeId),
-        },
-      ],
-    );
+    showConfirm({
+      title: 'Remove Look',
+      message: `Remove "${title}" from your saved try-on looks?`,
+      confirmText: 'Remove',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: () => removeTryOnLook(sareeId),
+    });
   };
 
   return (
@@ -205,8 +202,8 @@ function WardrobeScreen({ navigation }) {
           style={{
             flexDirection: 'row',
             backgroundColor: '#EFEBE3',
-            borderRadius: 16,
-            padding: 3,
+            borderRadius: 18,
+            padding: 3.5,
           }}>
           {/* Tab 1: Saved Sarees */}
           <TouchableOpacity
@@ -214,8 +211,8 @@ function WardrobeScreen({ navigation }) {
             onPress={() => setWardrobeSection('saved')}
             style={{
               flex: 1,
-              paddingVertical: 9,
-              borderRadius: 13,
+              paddingVertical: 10,
+              borderRadius: 14,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor:
@@ -228,15 +225,13 @@ function WardrobeScreen({ navigation }) {
             }}>
             <Text
               style={{
-                fontFamily:
-                  wardrobeSection === 'saved'
-                    ? 'Comfortaa-Bold'
-                    : 'Comfortaa-Medium',
-                fontSize: isSmallDevice ? 11.5 : 12.5,
+                fontFamily: 'Manrope-Bold',
+                fontSize: isSmallDevice ? 12.5 : 14,
+                letterSpacing: -0.2,
                 color:
                   wardrobeSection === 'saved'
                     ? (colours.saffron || '#BF5B21')
-                    : '#6B5E51',
+                    : '#544C42',
               }}>
               Saved Sarees ({wishlistItems.length})
             </Text>
@@ -249,8 +244,8 @@ function WardrobeScreen({ navigation }) {
             style={{
               flex: 1,
               flexDirection: 'row',
-              paddingVertical: 9,
-              borderRadius: 13,
+              paddingVertical: 10,
+              borderRadius: 14,
               alignItems: 'center',
               justifyContent: 'center',
               backgroundColor:
@@ -263,25 +258,23 @@ function WardrobeScreen({ navigation }) {
             }}>
             <Icon
               name="sparkles"
-              size={12}
+              size={13.5}
               color={
                 wardrobeSection === 'tryon'
                   ? (colours.saffron || '#BF5B21')
-                  : '#8A8275'
+                  : '#6E655B'
               }
-              style={{ marginRight: 4 }}
+              style={{ marginRight: 5 }}
             />
             <Text
               style={{
-                fontFamily:
-                  wardrobeSection === 'tryon'
-                    ? 'Comfortaa-Bold'
-                    : 'Comfortaa-Medium',
-                fontSize: isSmallDevice ? 11.5 : 12.5,
+                fontFamily: 'Manrope-Bold',
+                fontSize: isSmallDevice ? 12.5 : 14,
+                letterSpacing: -0.2,
                 color:
                   wardrobeSection === 'tryon'
                     ? (colours.saffron || '#BF5B21')
-                    : '#6B5E51',
+                    : '#544C42',
               }}>
               Try-On Looks ({tryOnLooks.length})
             </Text>
@@ -342,51 +335,35 @@ function WardrobeScreen({ navigation }) {
                 style={{
                   alignItems: 'center',
                   justifyContent: 'center',
-                  paddingVertical: 70,
-                  paddingHorizontal: 24,
+                  paddingVertical: 50,
+                  paddingHorizontal: 32,
                 }}>
-                <View
-                  style={{
-                    width: 84,
-                    height: 84,
-                    borderRadius: 42,
-                    backgroundColor: '#FFFFFF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1.5,
-                    borderColor: '#EFEBE3',
-                    shadowColor: '#000000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 8,
-                    elevation: 2,
-                    marginBottom: 18,
-                  }}>
-                  <Icon
-                    name="heart-outline"
-                    size={38}
-                    color={colours.saffron || '#BF5B21'}
-                  />
-                </View>
+                <Icon
+                  name="heart-outline"
+                  size={72}
+                  color={colours.saffron || '#BF5B21'}
+                  style={{ marginBottom: 16 }}
+                />
 
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Bold',
-                    fontSize: 19,
-                    color: colours.textPrimary || '#1E1B18',
+                    fontFamily: 'Manrope-Bold',
+                    fontSize: 18,
+                    color: '#161413',
                     textAlign: 'center',
+                    marginBottom: 6,
                   }}>
                   Your Saved Sarees is Empty
                 </Text>
 
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Regular',
+                    fontFamily: 'Manrope-Regular',
                     fontSize: 12.5,
-                    color: '#6B5E51',
+                    color: '#6E675D',
                     textAlign: 'center',
-                    marginTop: 8,
-                    lineHeight: 19,
+                    lineHeight: 18.5,
+                    marginBottom: 20,
                     maxWidth: 290,
                   }}>
                   Explore our authentic handloom collections and tap the heart icon on any saree to curate your wardrobe.
@@ -394,28 +371,40 @@ function WardrobeScreen({ navigation }) {
 
                 <TouchableOpacity
                   activeOpacity={0.88}
-                  onPress={() => navigation?.navigate?.('CollectionsTab')}
+                  onPress={() => {
+                    try {
+                      navigation?.navigate?.('MainTabs', {
+                        screen: 'CollectionsTab',
+                        params: { category: 'all' },
+                      });
+                    } catch {
+                      navigation?.navigate?.('CollectionsTab');
+                    }
+                  }}
                   style={{
                     backgroundColor: colours.saffron || '#BF5B21',
-                    paddingHorizontal: 28,
-                    paddingVertical: 14,
-                    borderRadius: 24,
-                    marginTop: 24,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 22,
+                    paddingVertical: 11,
+                    borderRadius: 22,
+                    gap: 8,
                     shadowColor: colours.saffron || '#BF5B21',
-                    shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 6,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 5,
+                    elevation: 3,
                   }}>
                   <Text
                     style={{
-                      fontFamily: 'Comfortaa-Bold',
-                      fontSize: 13.5,
+                      fontFamily: 'Manrope-Bold',
+                      fontSize: 12.5,
                       color: '#FFFFFF',
-                      letterSpacing: 0.3,
                     }}>
                     Explore Collections
                   </Text>
+                  <Icon name="arrow-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             )}
@@ -600,51 +589,35 @@ function WardrobeScreen({ navigation }) {
                 style={{
                   alignItems: 'center',
                   justifyContent: 'center',
-                  paddingVertical: 70,
-                  paddingHorizontal: 24,
+                  paddingVertical: 50,
+                  paddingHorizontal: 32,
                 }}>
-                <View
-                  style={{
-                    width: 84,
-                    height: 84,
-                    borderRadius: 42,
-                    backgroundColor: '#FFFFFF',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    borderWidth: 1.5,
-                    borderColor: '#EFEBE3',
-                    shadowColor: '#000000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.06,
-                    shadowRadius: 8,
-                    elevation: 2,
-                    marginBottom: 18,
-                  }}>
-                  <Icon
-                    name="sparkles-outline"
-                    size={38}
-                    color={colours.saffron || '#BF5B21'}
-                  />
-                </View>
+                <Icon
+                  name="sparkles-outline"
+                  size={72}
+                  color={colours.saffron || '#BF5B21'}
+                  style={{ marginBottom: 16 }}
+                />
 
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Bold',
-                    fontSize: 19,
-                    color: colours.textPrimary || '#1E1B18',
+                    fontFamily: 'Manrope-Bold',
+                    fontSize: 18,
+                    color: '#161413',
                     textAlign: 'center',
+                    marginBottom: 6,
                   }}>
                   No Try-On Looks Saved Yet
                 </Text>
 
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Regular',
+                    fontFamily: 'Manrope-Regular',
                     fontSize: 12.5,
-                    color: '#6B5E51',
+                    color: '#6E675D',
                     textAlign: 'center',
-                    marginTop: 8,
-                    lineHeight: 19,
+                    lineHeight: 18.5,
+                    marginBottom: 20,
                     maxWidth: 290,
                   }}>
                   Try on any saree from your saved list or collections to see it virtually fitted on your photo in 3D!
@@ -652,28 +625,40 @@ function WardrobeScreen({ navigation }) {
 
                 <TouchableOpacity
                   activeOpacity={0.88}
-                  onPress={() => navigation?.navigate?.('CollectionsTab')}
+                  onPress={() => {
+                    try {
+                      navigation?.navigate?.('MainTabs', {
+                        screen: 'CollectionsTab',
+                        params: { category: 'all' },
+                      });
+                    } catch {
+                      navigation?.navigate?.('CollectionsTab');
+                    }
+                  }}
                   style={{
                     backgroundColor: colours.saffron || '#BF5B21',
-                    paddingHorizontal: 28,
-                    paddingVertical: 14,
-                    borderRadius: 24,
-                    marginTop: 24,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    paddingHorizontal: 22,
+                    paddingVertical: 11,
+                    borderRadius: 22,
+                    gap: 8,
                     shadowColor: colours.saffron || '#BF5B21',
-                    shadowOffset: { width: 0, height: 3 },
-                    shadowOpacity: 0.3,
-                    shadowRadius: 6,
-                    elevation: 4,
+                    shadowOffset: { width: 0, height: 2 },
+                    shadowOpacity: 0.25,
+                    shadowRadius: 5,
+                    elevation: 3,
                   }}>
                   <Text
                     style={{
-                      fontFamily: 'Comfortaa-Bold',
-                      fontSize: 13.5,
+                      fontFamily: 'Manrope-Bold',
+                      fontSize: 12.5,
                       color: '#FFFFFF',
-                      letterSpacing: 0.3,
                     }}>
                     Explore Handlooms to Try On
                   </Text>
+                  <Icon name="arrow-forward" size={16} color="#FFFFFF" />
                 </TouchableOpacity>
               </View>
             )}
@@ -747,7 +732,7 @@ function WardrobeScreen({ navigation }) {
                 {/* Description */}
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Regular',
+                    fontFamily: 'Manrope-Regular',
                     fontSize: 12,
                     color: '#6E675D',
                     lineHeight: 18,

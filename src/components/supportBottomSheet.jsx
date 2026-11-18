@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Image,
   Linking,
   StyleSheet,
@@ -11,6 +10,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import BottomSheet from './bottomSheet';
+import { usePopup } from '../context/popupContext';
 import { dash } from '../lib/text';
 
 const INSTAGRAM_LOGO = require('../assets/Instagramlogo.jpg');
@@ -29,6 +29,8 @@ function SupportBottomSheet({
   onClose,
   config = {},
 }) {
+  const { showAlert } = usePopup();
+
   // Navigate directly to WhatsApp app
   const handleWhatsApp = async () => {
     const phone = config.whatsappPhone;
@@ -46,7 +48,10 @@ function SupportBottomSheet({
       }
     } catch {
       Linking.openURL(webUrl).catch(() => {
-        Alert.alert('WhatsApp', 'Unable to open WhatsApp on this device.');
+        showAlert({
+          title: 'WhatsApp',
+          message: 'Unable to open WhatsApp on this device.',
+        });
       });
     }
   };
@@ -67,7 +72,10 @@ function SupportBottomSheet({
       }
     } catch {
       Linking.openURL(webUrl).catch(() => {
-        Alert.alert('Instagram', 'Unable to open Instagram on this device.');
+        showAlert({
+          title: 'Instagram',
+          message: 'Unable to open Instagram on this device.',
+        });
       });
     }
   };
@@ -82,10 +90,16 @@ function SupportBottomSheet({
       if (canOpen) {
         await Linking.openURL(telUrl);
       } else {
-        Alert.alert('Customer Helpline', `Toll Free: ${config.helplineDisplay}`);
+        showAlert({
+          title: 'Customer Helpline',
+          message: `Toll Free: ${config.helplineDisplay}`,
+        });
       }
     } catch {
-      Alert.alert('Customer Helpline', `Toll Free: ${config.helplineDisplay}`);
+      showAlert({
+        title: 'Customer Helpline',
+        message: `Toll Free: ${config.helplineDisplay}`,
+      });
     }
   };
 
@@ -94,6 +108,7 @@ function SupportBottomSheet({
       visible={visible}
       onClose={onClose}
       title="Support"
+      titleStyle={{ fontFamily: 'Manrope-Bold' }}
       maxHeight="85%">
       <View style={styles.container}>
         {/* 1. WhatsApp Button (WhatsApp Theme) */}
@@ -231,7 +246,7 @@ const styles = StyleSheet.create({
   },
   channelTitle: {
     flex: 1,
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 14,
     color: '#161413',
     letterSpacing: -0.2,

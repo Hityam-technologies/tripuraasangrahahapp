@@ -212,7 +212,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lookTitle: {
-    fontFamily: 'Manrope-Bold',
+    fontFamily: 'Comfortaa-Bold',
     fontSize: 10.5,
     color: '#1F2937',
     marginBottom: 2,

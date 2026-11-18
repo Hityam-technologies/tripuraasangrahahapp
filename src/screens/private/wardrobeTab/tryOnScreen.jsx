@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   BackHandler,
   Dimensions,
@@ -23,6 +22,7 @@ import { tryOnOfferLine } from '../../../lib/text';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useTryOn } from '../../../context/tryOnContext';
 import { useCatalog } from '../../../context/catalogContext';
+import { usePopup } from '../../../context/popupContext';
 import TryOnPhotoModal from '../../../components/tryOnPhotoModal';
 
 /**
@@ -49,6 +49,7 @@ function TryOnScreen({ navigation, route }) {
   const { hideTabBar, showTabBar } = useTabBar();
   const { getSaree, sarees } = useCatalog();
   const { userPhoto, saveTryOnLook, removeTryOnLook, isLookSaved, generateDrape, drapeStatus, tryOnWallet } = useTryOn();
+  const { showAlert } = usePopup();
   const alive = useRef(true);
   const [drapeOverride, setDrapeOverride] = useState(null);
 
@@ -181,10 +182,10 @@ function TryOnScreen({ navigation, route }) {
 
     if (isSavedInLooks) {
       removeTryOnLook(selectedSaree.id);
-      Alert.alert(
-        'Look Removed',
-        'This drape fitting has been removed from Your Try-On Looks.',
-      );
+      showAlert({
+        title: 'Look Removed',
+        message: 'This drape fitting has been removed from Your Try-On Looks.',
+      });
     } else {
       saveTryOnLook({
         id: `look-${selectedSaree.id}`,
@@ -197,12 +198,13 @@ function TryOnScreen({ navigation, route }) {
         userPhotoSource: userPhoto,
       });
 
-      Alert.alert(
-        'Look Saved!',
-        'This drape fitting has been saved to "Your Try-On Looks". You can view it anytime on Home and Wardrobe.',
-      );
+      showAlert({
+        title: 'Look Saved!',
+        message: 'This drape fitting has been saved to "Your Try-On Looks". You can view it anytime on Home and Wardrobe.',
+        type: 'success',
+      });
     }
-  }, [selectedSaree, userPhoto, saveTryOnLook, removeTryOnLook, isSavedInLooks]);
+  }, [selectedSaree, userPhoto, saveTryOnLook, removeTryOnLook, isSavedInLooks, showAlert]);
 
   // Active image to display
   const currentImageSource =
@@ -483,7 +485,7 @@ const styles = StyleSheet.create({
     borderColor: colours.saffron || '#BF5B21',
   },
   photoLabel: {
-    fontFamily: 'Comfortaa-SemiBold',
+    fontFamily: 'Manrope-SemiBold',
     fontSize: 12,
     color: '#161413',
     marginLeft: 9,
@@ -657,7 +659,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   viewDetailsText: {
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 12,
     color: '#FFFFFF',
     letterSpacing: 0.2,

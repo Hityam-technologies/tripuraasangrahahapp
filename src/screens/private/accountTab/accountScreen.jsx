@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   Image,
   Platform,
@@ -23,6 +22,7 @@ import SupportBottomSheet from '../../../components/supportBottomSheet';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useAuth } from '../../../context/authContext';
 import { useLoading } from '../../../context/loadingContext';
+import { usePopup } from '../../../context/popupContext';
 import { dash } from '../../../lib/text';
 import { useCatalog } from '../../../context/catalogContext';
 
@@ -51,12 +51,17 @@ function AccountScreen({ navigation }) {
   // Floating tab bar scroll controller
   const { hideTabBar, showTabBar } = useTabBar();
   const { navigateWithLoading, runWithLoading } = useLoading();
+  const { showConfirm } = usePopup();
   const lastScrollY = useRef(0);
 
   // User Profile State
-  const { user, signOut, updateProfile } = useAuth();
+  const { user, signOut, updateProfile, refreshUser } = useAuth();
   const { store, support } = useCatalog();
   const [userProfile, setUserProfile] = useState({ name: '', email: '', phone: '' });
+
+  useEffect(() => {
+    refreshUser?.();
+  }, [refreshUser]);
 
   useEffect(() => {
     if (!user) return;
@@ -89,36 +94,47 @@ function AccountScreen({ navigation }) {
   };
 
   const handleLogout = useCallback(() => {
-    Alert.alert(
-      'Sign Out',
-      'Are you sure you want to sign out?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Sign Out',
-          style: 'destructive',
-          onPress: async () => {
-            await runWithLoading(async () => {
-              await signOut();
-              navigation?.reset?.({
-                index: 0,
-                routes: [{ name: 'Login' }],
-              });
-            }, 'Signing out...');
-          },
-        },
-      ],
-    );
-  }, [navigation, signOut, runWithLoading]);
+    showConfirm({
+      title: 'Sign Out',
+      message: 'Are you sure you want to sign out?',
+      confirmText: 'Sign Out',
+      cancelText: 'Cancel',
+      destructive: true,
+      onConfirm: async () => {
+        await runWithLoading(async () => {
+          await signOut();
+          navigation?.reset?.({
+            index: 0,
+            routes: [{ name: 'Login' }],
+          });
+        }, 'Signing out...');
+      },
+    });
+  }, [navigation, signOut, runWithLoading, showConfirm]);
 
   // Section 1 Items: Account & Services
   const accountAndServicesItems = useMemo(() => [
     {
       id: 'profile',
-      iconName: 'person-circle-outline',
-      iconSize: 17,
+      iconName: 'person-outline',
+      iconSize: 22,
       label: 'Profile',
       onPress: () => setIsProfileModalOpen(true),
+    },
+    {
+      id: 'orders',
+      iconName: 'receipt-outline',
+      iconSize: 21,
+      label: 'My Orders',
+      onPress: () => navigation?.navigate?.('Orders'),
+    },
+    {
+      id: 'referral',
+      iconName: 'gift-outline',
+      iconSize: 21,
+      label: 'Refer & Earn',
+      badgeText: 'Earn cash',
+      onPress: () => navigation?.navigate?.('Referral'),
     },
     {
       id: 'store_address',
@@ -129,25 +145,25 @@ function AccountScreen({ navigation }) {
     {
       id: 'support',
       iconName: 'headset-outline',
-      iconSize: 16,
+      iconSize: 21,
       label: 'Support',
       onPress: () => setIsSupportModalOpen(true),
     },
-  ], []);
+  ], [navigation]);
 
   // Section 2 Items: Legal & Policies
   const legalAndPolicyItems = useMemo(() => [
     {
       id: 'faq',
       iconName: 'help-circle-outline',
-      iconSize: 17,
+      iconSize: 21,
       label: 'FAQ',
       onPress: () => navigateWithLoading(navigation, 'Faq', undefined, 'Opening FAQ...'),
     },
     {
       id: 'terms_of_service',
       iconName: 'information-circle-outline',
-      iconSize: 17,
+      iconSize: 21,
       label: 'Terms & Conditions',
       onPress: () =>
         navigateWithLoading(navigation, 'TermsOfService', undefined, 'Opening terms...'),
@@ -155,7 +171,7 @@ function AccountScreen({ navigation }) {
     {
       id: 'user_policy',
       iconName: 'shield-checkmark-outline',
-      iconSize: 16,
+      iconSize: 20,
       label: 'Privacy Policy',
       onPress: () =>
         navigateWithLoading(navigation, 'UserPolicy', undefined, 'Opening policy...'),
@@ -163,7 +179,7 @@ function AccountScreen({ navigation }) {
   ], [navigation, navigateWithLoading]);
 
   return (
-    <GradientBackground className="flex-1">
+    <GradientBackground idPrefix="account_" className="flex-1">
       <StatusBar
         barStyle="dark-content"
         backgroundColor="transparent"
@@ -171,7 +187,9 @@ function AccountScreen({ navigation }) {
       />
 
       {/* Unified Top Header */}
-      <ScreenHeader title="Account" />
+      <ScreenHeader
+        title="Account"
+      />
 
       {/* Scrollable Content */}
       <Animated.ScrollView
@@ -200,6 +218,11 @@ function AccountScreen({ navigation }) {
           </View>
 
           <Text style={styles.userName}>{dash(userProfile.name)}</Text>
+          {Number(user?.walletBalance) > 0 ? (
+            <Text style={styles.walletLine}>
+              Store cash ₹{Number(user.walletBalance).toLocaleString('en-IN')}
+            </Text>
+          ) : null}
         </View>
 
         {/* Section 1: Account & Services (Profile, Store Address, Support) */}
@@ -210,10 +233,10 @@ function AccountScreen({ navigation }) {
 
         {/* Sign Out Button */}
         <TouchableOpacity
-          activeOpacity={0.8}
+          activeOpacity={0.85}
           onPress={handleLogout}
           style={styles.logoutBtn}>
-          <Icon name="log-out-outline" size={16} color="#DC2626" />
+          <Icon name="log-out-outline" size={18} color="#FFFFFF" />
           <Text style={styles.logoutBtnText}>Sign Out</Text>
         </TouchableOpacity>
 
@@ -259,14 +282,14 @@ function AccountScreen({ navigation }) {
 const styles = StyleSheet.create({
   profileHeader: {
     alignItems: 'center',
-    marginBottom: 18,
-    paddingTop: 4,
+    marginBottom: 24,
+    paddingTop: 8,
   },
   avatarBorder: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 2,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
+    borderWidth: 2.5,
     borderColor: colours.saffron || '#BF5B21',
     padding: 2.5,
     backgroundColor: '#FFFFFF',
@@ -274,53 +297,60 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     shadowColor: colours.saffron || '#BF5B21',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.16,
+    shadowRadius: 8,
     elevation: 3,
-    marginBottom: 8,
+    marginBottom: 12,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 34,
+    borderRadius: 37,
   },
   avatarInitial: {
-    fontFamily: 'Comfortaa-Bold',
-    fontSize: 28,
+    fontFamily: 'Manrope-Bold',
+    fontSize: 32,
     color: colours.saffron || '#BF5B21',
     textAlign: 'center',
   },
   userName: {
-    fontFamily: 'Comfortaa-Bold',
-    fontSize: 17,
+    fontFamily: 'Manrope-Bold',
+    fontSize: 21,
     color: '#161413',
-    letterSpacing: -0.2,
+    letterSpacing: -0.3,
+    lineHeight: 28,
+    textAlign: 'center',
+  },
+  walletLine: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 13,
+    color: '#BF5B21',
+    marginTop: 4,
+    textAlign: 'center',
   },
   logoutBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: '#FECACA',
-    paddingVertical: 11,
+    backgroundColor: '#DC2626',
+    borderRadius: 18,
+    paddingVertical: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 7,
-    marginBottom: 16,
+    gap: 8,
+    marginBottom: 18,
     shadowColor: '#DC2626',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.22,
+    shadowRadius: 5,
+    elevation: 3,
   },
   logoutBtnText: {
     fontFamily: 'Comfortaa-Bold',
-    fontSize: 13,
-    color: '#DC2626',
+    fontSize: 14.5,
+    color: '#FFFFFF',
   },
   footerBrand: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 10.5,
     color: '#A59B8F',
     textAlign: 'center',

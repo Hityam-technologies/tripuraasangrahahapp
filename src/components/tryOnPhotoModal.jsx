@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -9,6 +8,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import BottomSheet from './bottomSheet';
+import { usePopup } from '../context/popupContext';
 import { useTryOn } from '../context/tryOnContext';
 
 /**
@@ -21,13 +21,17 @@ import { useTryOn } from '../context/tryOnContext';
  */
 function TryOnPhotoModal({ visible = false, onClose }) {
   const { uploadPortrait } = useTryOn();
+  const { showAlert } = usePopup();
 
   const pickPhoto = async (source) => {
     let picker;
     try {
       picker = require('react-native-image-picker');
     } catch {
-      Alert.alert('Photo', 'The photo library is not available in this build yet.');
+      showAlert({
+        title: 'Photo Library',
+        message: 'The photo library is not available in this build yet.',
+      });
       return;
     }
     const launch = source === 'camera' ? picker.launchCamera : picker.launchImageLibrary;
@@ -36,10 +40,18 @@ function TryOnPhotoModal({ visible = false, onClose }) {
     if (!asset?.uri) return;
     const uploaded = await uploadPortrait(asset);
     if (!uploaded.success) {
-      Alert.alert('Photo', uploaded.error?.message || 'The portrait could not be saved.');
+      showAlert({
+        title: 'Photo Upload',
+        message: uploaded.error?.message || 'The portrait could not be saved.',
+        type: 'destructive',
+      });
       return;
     }
-    Alert.alert('Photo saved', 'Your portrait is ready for AI saree draping.');
+    showAlert({
+      title: 'Photo Saved',
+      message: 'Your portrait is ready for AI saree draping.',
+      type: 'success',
+    });
     onClose?.();
   };
 

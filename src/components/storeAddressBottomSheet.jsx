@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Alert,
   Image,
   Linking,
   Platform,
@@ -11,6 +10,7 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import BottomSheet from './bottomSheet';
+import { usePopup } from '../context/popupContext';
 import { dash } from '../lib/text';
 
 const GOOGLE_MAPS_ICON = require('../assets/google_maps.png');
@@ -28,6 +28,8 @@ function StoreAddressBottomSheet({
   onClose,
   store = {},
 }) {
+  const { showAlert } = usePopup();
+
   // Navigate directly to Google Maps app
   const handleOpenMaps = async () => {
     // Keep sheet open so when user returns from Maps, store phone, hours & landmark remain accessible
@@ -47,10 +49,10 @@ function StoreAddressBottomSheet({
         try {
           await Linking.openURL(universalWebUrl);
         } catch {
-          Alert.alert(
-            store.name,
-            `${store.addressLine1}, ${store.addressLine2}\n(${store.landmark})`,
-          );
+          showAlert({
+            title: store.name || 'Store Location',
+            message: `${store.addressLine1}, ${store.addressLine2}\n(${store.landmark})`,
+          });
         }
       }
     } else if (Platform.OS === 'ios') {
@@ -63,10 +65,10 @@ function StoreAddressBottomSheet({
         }
       } catch {
         Linking.openURL(universalWebUrl).catch(() => {
-          Alert.alert(
-            store.name,
-            `${store.addressLine1}, ${store.addressLine2}\n(${store.landmark})`,
-          );
+          showAlert({
+            title: store.name || 'Store Location',
+            message: `${store.addressLine1}, ${store.addressLine2}\n(${store.landmark})`,
+          });
         });
       }
     } else {
@@ -79,6 +81,7 @@ function StoreAddressBottomSheet({
       visible={visible}
       onClose={onClose}
       title="Store Address"
+      titleStyle={{ fontFamily: 'Manrope-Bold' }}
       maxHeight="85%">
       <View style={styles.container}>
         {/* Boutique Location & Hours Card */}
@@ -133,20 +136,20 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   storeName: {
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 15,
     color: '#161413',
     letterSpacing: -0.2,
     marginBottom: 4,
   },
   addressText: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 12.5,
     color: '#4A433A',
     lineHeight: 18,
   },
   landmarkText: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 11,
     color: '#8A7F71',
     marginTop: 2,
@@ -168,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2E7D32',
   },
   timingsText: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 12,
     color: '#3E372E',
   },
@@ -206,7 +209,7 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     flex: 1,
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 14,
     color: '#161413',
     letterSpacing: -0.2,

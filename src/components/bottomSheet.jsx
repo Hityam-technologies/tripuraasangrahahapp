@@ -3,11 +3,13 @@ import {
   Animated,
   Dimensions,
   Easing,
+  Keyboard,
   Modal,
   PanResponder,
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -31,6 +33,7 @@ function BottomSheet({
   visible = false,
   onClose,
   title,
+  titleStyle,
   children,
   maxHeight = '85%',
   showHandle = true,
@@ -89,6 +92,7 @@ function BottomSheet({
 
   // Unified exit animation
   const handleClose = () => {
+    Keyboard.dismiss();
     if (isClosingRef.current) return;
     isClosingRef.current = true;
     isAnimatingRef.current = false;
@@ -163,22 +167,26 @@ function BottomSheet({
         }
       }}>
       <View style={styles.modalOverlay}>
-        {/* 1. Full-screen Deep Dark Fading Backdrop Scrim covering the WHOLE screen */}
+        {/* 1. Full-screen Deep Dark Fading Backdrop Scrim (visual only) */}
         <Animated.View
+          pointerEvents="none"
           style={[
             StyleSheet.absoluteFillObject,
             styles.backdropScrim,
             { opacity: backdropOpacity },
-          ]}>
-          {/* Tapping anywhere on the dark backdrop immediately closes the sheet */}
-          <TouchableOpacity
-            style={[StyleSheet.absoluteFillObject, { backgroundColor: 'transparent' }]}
-            activeOpacity={1}
-            onPress={handleClose}
-          />
-        </Animated.View>
+          ]}
+        />
 
-        {/* 2. Unified Sliding & Fading Bottom Sheet Card (Full Width, Zero Gaps) */}
+        {/* 2. Top Backdrop Dismiss Area (fills 100% of space above the sheet card) */}
+        <TouchableWithoutFeedback
+          onPress={handleClose}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Close bottom sheet">
+          <View style={styles.topBackdropTouchArea} />
+        </TouchableWithoutFeedback>
+
+        {/* 3. Unified Sliding & Fading Bottom Sheet Card (Full Width, Zero Gaps) */}
         <Animated.View
           style={[
             styles.sheetCard,
@@ -190,8 +198,7 @@ function BottomSheet({
               transform: [{ translateY: sheetTranslateY }],
             },
             contentContainerStyle,
-          ]}
-          onStartShouldSetResponder={() => true}>
+          ]}>
           {/* Header Area */}
           {showHandle && (
             <View style={styles.handleArea}>
@@ -202,7 +209,7 @@ function BottomSheet({
 
               {/* Title & Close Button Row */}
               <View style={styles.headerRow}>
-                <Text style={styles.titleText}>{title || ''}</Text>
+                <Text style={[styles.titleText, titleStyle]}>{title || ''}</Text>
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={handleClose}
@@ -235,6 +242,10 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'stretch',
     backgroundColor: 'transparent',
+  },
+  topBackdropTouchArea: {
+    flex: 1,
+    width: '100%',
   },
   backdropScrim: {
     ...StyleSheet.absoluteFillObject,

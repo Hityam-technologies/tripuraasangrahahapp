@@ -10,6 +10,9 @@ import TermsOfServiceScreen from '../screens/private/accountTab/termsOfServiceSc
 import UserPolicyScreen from '../screens/private/accountTab/userPolicyScreen';
 import CardDetailScreen from '../screens/private/cardDetailScreen';
 import TryOnScreen from '../screens/private/wardrobeTab/tryOnScreen';
+import CartScreen from '../screens/private/cartScreen';
+import OrdersScreen from '../screens/private/ordersScreen';
+import ReferralScreen from '../screens/private/accountTab/referralScreen';
 import TabNavigator from './tabNavigator';
 
 const Stack = createNativeStackNavigator();
@@ -86,6 +89,21 @@ function AppNavigator() {
       <Stack.Screen
         name="TryOnTab"
         component={TryOnScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Cart"
+        component={CartScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Orders"
+        component={OrdersScreen}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Referral"
+        component={ReferralScreen}
         options={{ animation: 'slide_from_right' }}
       />
     </Stack.Navigator>

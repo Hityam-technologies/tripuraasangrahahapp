@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
-  Platform,
+  Linking,
   ScrollView,
   StatusBar,
+  StyleSheet,
   Text,
   TouchableOpacity,
   useWindowDimensions,
@@ -12,207 +13,404 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../../../assets/colours';
 import GradientBackground from '../../../components/gradientBackground';
-import BackButton from '../../../components/backButton';
+import ScreenHeader from '../../../components/screenHeader';
 import { SectionLoader } from '../../../components/loadingSpinner';
 import { useCatalog } from '../../../context/catalogContext';
 
+const CATEGORIES = [
+  { id: 'all', label: 'All Questions' },
+  { id: 'weaves', label: 'Silks & Craft' },
+  { id: 'orders', label: 'Orders & Dispatch' },
+  { id: 'try_on', label: 'Virtual Try-On' },
+];
+
+function categorizeItem(item) {
+  const text = `${item.question || ''} ${item.answer || ''}`.toLowerCase();
+  if (text.includes('try-on') || text.includes('try on') || text.includes('virtual') || text.includes('photo')) {
+    return 'try_on';
+  }
+  if (text.includes('shipping') || text.includes('timeline') || text.includes('return') || text.includes('exchange') || text.includes('deliver') || text.includes('order')) {
+    return 'orders';
+  }
+  return 'weaves';
+}
+
 function FaqScreen({ navigation }) {
   const { faq, loading } = useCatalog();
-  const items = faq;
+  const items = Array.isArray(faq) ? faq : [];
   const insets = useSafeAreaInsets();
-  const topInset = Math.max(
-    insets.top,
-    Platform.OS === 'android' ? (StatusBar.currentHeight || 0) : 0,
-  );
-
   const { width: screenWidth } = useWindowDimensions();
   const isSmallDevice = screenWidth < 375;
   const hPadding = isSmallDevice ? 16 : 20;
 
-  const [expandedId, setExpandedId] = useState('1');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [expandedId, setExpandedId] = useState(null);
 
   const toggleExpand = (id) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
 
+  const filteredItems = useMemo(() => {
+    if (activeCategory === 'all') return items;
+    return items.filter((item) => categorizeItem(item) === activeCategory);
+  }, [items, activeCategory]);
+
   return (
-    <GradientBackground className="flex-1">
+    <GradientBackground topOnly={true} className="flex-1">
       <StatusBar
         barStyle="dark-content"
         backgroundColor="transparent"
         translucent={true}
       />
 
-      {/* Header */}
-      <View
-        style={{
-          paddingTop: topInset + 6,
-          paddingHorizontal: hPadding,
-          paddingBottom: 12,
-          zIndex: 20,
-        }}>
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-          }}>
-          <BackButton
-            onPress={() => navigation.goBack()}
-            sizeClass={isSmallDevice ? 'w-10 h-10' : 'w-11 h-11'}
-          />
-
-          <Text
-            style={{
-              fontFamily: 'Comfortaa-Bold',
-              fontSize: isSmallDevice ? 18 : 20,
-              color: '#161413',
-              letterSpacing: -0.3,
-            }}>
-            FAQ
-          </Text>
-
-          <View style={{ width: isSmallDevice ? 40 : 44 }} />
-        </View>
-      </View>
+      {/* Screen Header */}
+      <ScreenHeader
+        title="FAQ"
+        onBackPress={() => navigation.goBack()}
+        backgroundColor="transparent"
+        titleStyle={{ fontFamily: 'Manrope-Bold' }}
+      />
 
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{
-          paddingHorizontal: hPadding,
-          paddingTop: 8,
-          paddingBottom: 40,
-        }}
-        showsVerticalScrollIndicator={false}>
-        {/* Intro */}
-        <Text
-          style={{
-            fontFamily: 'Comfortaa-Medium',
-            fontSize: 12.5,
-            color: '#70685E',
-            lineHeight: 18,
-            marginBottom: 16,
-            marginLeft: 2,
-          }}>
-          Frequently asked questions about our heritage handlooms, pure zari certifications, and boutique services.
-        </Text>
+        contentContainerStyle={[
+          styles.scrollContent,
+          {
+            paddingHorizontal: hPadding,
+            paddingBottom: Math.max(insets.bottom + 28, 40),
+          },
+        ]}
+        showsVerticalScrollIndicator={false}
+        bounces={true}>
 
-        {/* FAQ Accordion List */}
-        <View
-          style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: '#EDE9E2',
-            paddingVertical: 6,
-            paddingHorizontal: 16,
-            shadowColor: '#000000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.04,
-            shadowRadius: 6,
-            elevation: 2,
-          }}>
+        {/* ===================================================================
+            1. INTRO
+            =================================================================== */}
+        <View style={styles.introSection}>
+          <Text style={styles.introHeading}>Frequently Asked Questions</Text>
+          <Text style={styles.introSubtitle}>
+            Everything you need to know about our certified pure zari weaves,
+            handloom certifications, virtual try-ons, and customer care.
+          </Text>
+        </View>
+
+        {/* ===================================================================
+            2. CATEGORY PILLS FILTER (Edge-to-Edge full screen scroll)
+            =================================================================== */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={[styles.categoryPillsScroll, { marginHorizontal: -hPadding }]}
+          contentContainerStyle={[
+            styles.categoryPillsTrack,
+            { paddingHorizontal: hPadding },
+          ]}>
+          {CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                activeOpacity={0.75}
+                onPress={() => setActiveCategory(cat.id)}
+                style={[
+                  styles.categoryPill,
+                  isSelected && styles.categoryPillActive,
+                ]}>
+                <Text
+                  style={[
+                    styles.categoryPillText,
+                    isSelected && styles.categoryPillTextActive,
+                  ]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* ===================================================================
+            3. ACCORDION CARDS (Individual, Non-Boxy Cards)
+            =================================================================== */}
+        <View style={styles.cardsList}>
           {loading && items.length === 0 ? (
-            <SectionLoader message="Loading FAQ..." minHeight={120} />
+            <SectionLoader message="Loading FAQs..." minHeight={160} />
           ) : null}
-          {!loading && items.length === 0 ? (
-            <Text style={{ paddingVertical: 16, color: '#70685E' }}>No FAQs available yet.</Text>
+
+          {!loading && filteredItems.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Icon name="help-circle-outline" size={32} color="#B5AC9F" />
+              <Text style={styles.emptyCardText}>
+                No questions found in this category.
+              </Text>
+            </View>
           ) : null}
-          {items.map((item, index) => {
-            const isExpanded = expandedId === (item.id || item.question);
-            const isLast = index === items.length - 1;
+
+          {filteredItems.map((item, index) => {
+            const itemId = item.id || item.question || String(index);
+            const isExpanded = expandedId === itemId;
 
             return (
-              <View key={item.id || item.question}>
-                <TouchableOpacity
-                  activeOpacity={0.7}
-                  onPress={() => toggleExpand(item.id || item.question)}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    paddingVertical: 14,
-                  }}>
+              <TouchableOpacity
+                key={itemId}
+                activeOpacity={0.88}
+                onPress={() => toggleExpand(itemId)}
+                style={[
+                  styles.faqCard,
+                  isExpanded && styles.faqCardExpanded,
+                ]}>
+                <View style={styles.questionRow}>
                   <Text
-                    style={{
-                      flex: 1,
-                      fontFamily: 'Comfortaa-Bold',
-                      fontSize: 13.5,
-                      color: isExpanded ? (colours.saffron || '#BF5B21') : '#161413',
-                      lineHeight: 19,
-                      paddingRight: 10,
-                    }}>
+                    style={[
+                      styles.questionText,
+                      isExpanded && styles.questionTextExpanded,
+                    ]}>
                     {item.question}
                   </Text>
-                  <Icon
-                    name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                    size={17}
-                    color={isExpanded ? (colours.saffron || '#BF5B21') : '#A59B8F'}
-                  />
-                </TouchableOpacity>
+                  <View
+                    style={[
+                      styles.chevronCircle,
+                      isExpanded && styles.chevronCircleExpanded,
+                    ]}>
+                    <Icon
+                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                      size={15}
+                      color={isExpanded ? '#FFFFFF' : '#8A7F73'}
+                    />
+                  </View>
+                </View>
 
                 {isExpanded && (
-                  <View style={{ paddingBottom: 14, paddingTop: 2 }}>
-                    <Text
-                      style={{
-                        fontFamily: 'Comfortaa-Medium',
-                        fontSize: 12.5,
-                        color: '#635B50',
-                        lineHeight: 18,
-                      }}>
-                      {item.answer}
-                    </Text>
+                  <View style={styles.answerContainer}>
+                    <View style={styles.answerDivider} />
+                    <Text style={styles.answerText}>{item.answer}</Text>
                   </View>
                 )}
-
-                {!isLast && (
-                  <View
-                    style={{
-                      height: 1,
-                      backgroundColor: '#F0ECE4',
-                    }}
-                  />
-                )}
-              </View>
+              </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Footer Helpline Pill */}
-        <View
-          style={{
-            marginTop: 22,
-            backgroundColor: '#FAF8F4',
-            borderRadius: 16,
-            borderWidth: 1,
-            borderColor: '#EAE1CE',
-            padding: 16,
-            alignItems: 'center',
-          }}>
-          <Text
-            style={{
-              fontFamily: 'Comfortaa-Bold',
-              fontSize: 13,
-              color: '#161413',
-              marginBottom: 4,
-            }}>
-            Have more questions?
-          </Text>
-          <Text
-            style={{
-              fontFamily: 'Comfortaa-Medium',
-              fontSize: 11.5,
-              color: '#70685E',
-              textAlign: 'center',
-              lineHeight: 16,
-            }}>
-            Our master weave concierge is available 7 days a week for personalized guidance.
-          </Text>
+        {/* ===================================================================
+            4. CONCIERGE HELP CARD (No round background, big black icon)
+            =================================================================== */}
+        <View style={styles.conciergeCard}>
+          <Icon
+            name="headset-outline"
+            size={38}
+            color="#161413"
+            style={styles.conciergeIcon}
+          />
+          <View style={styles.conciergeContent}>
+            <Text style={styles.conciergeTitle}>Have a unique question?</Text>
+            <Text style={styles.conciergeDesc}>
+              Connect directly with our master drapers for personal styling and guidance.
+            </Text>
+          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => Linking.openURL('tel:6374174404')}
+            style={styles.conciergeBtn}>
+            <Icon name="call-outline" size={14} color="#FFFFFF" />
+            <Text style={styles.conciergeBtnText}>Call Concierge</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </GradientBackground>
   );
 }
 
-export default FaqScreen;
+const styles = StyleSheet.create({
+  scrollContent: {
+    paddingTop: 8,
+  },
+  introSection: {
+    marginBottom: 16,
+    paddingHorizontal: 2,
+  },
+  introHeading: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 20,
+    color: '#161413',
+    marginBottom: 6,
+    letterSpacing: -0.3,
+  },
+  introSubtitle: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12.5,
+    color: '#6E675D',
+    lineHeight: 18.5,
+  },
+  categoryPillsScroll: {
+    marginBottom: 16,
+  },
+  categoryPillsTrack: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  categoryPill: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#ECE6DC',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  categoryPillActive: {
+    backgroundColor: colours.saffron || '#BF5B21',
+    borderColor: colours.saffron || '#BF5B21',
+  },
+  categoryPillText: {
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 12,
+    color: '#5C5449',
+  },
+  categoryPillTextActive: {
+    color: '#FFFFFF',
+  },
+  cardsList: {
+    gap: 10,
+    marginBottom: 20,
+  },
+  emptyCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 36,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ECEAE4',
+  },
+  emptyCardText: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 13,
+    color: '#8A8277',
+    marginTop: 8,
+  },
+  faqCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ECE8E1',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  faqCardExpanded: {
+    borderColor: 'rgba(191, 91, 33, 0.45)',
+    backgroundColor: '#FFFFFF',
+    shadowColor: colours.saffron || '#BF5B21',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  questionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  questionText: {
+    flex: 1,
+    fontFamily: 'Manrope-Bold',
+    fontSize: 13.5,
+    color: '#161413',
+    lineHeight: 19,
+    paddingRight: 10,
+  },
+  questionTextExpanded: {
+    color: colours.saffron || '#BF5B21',
+  },
+  chevronCircle: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#FAF7F2',
+    borderWidth: 1,
+    borderColor: '#EFEAE1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chevronCircleExpanded: {
+    backgroundColor: colours.saffron || '#BF5B21',
+    borderColor: colours.saffron || '#BF5B21',
+  },
+  answerContainer: {
+    marginTop: 10,
+  },
+  answerDivider: {
+    height: 1,
+    backgroundColor: '#F3EFE9',
+    marginBottom: 10,
+  },
+  answerText: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12.5,
+    color: '#5C5449',
+    lineHeight: 19,
+  },
+  conciergeCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#EFE7DC',
+    padding: 18,
+    alignItems: 'center',
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    elevation: 1,
+  },
+  conciergeIcon: {
+    marginBottom: 10,
+  },
+  conciergeContent: {
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  conciergeTitle: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 14.5,
+    color: '#161413',
+    marginBottom: 4,
+  },
+  conciergeDesc: {
+    fontFamily: 'Manrope-Regular',
+    fontSize: 12,
+    color: '#70685E',
+    textAlign: 'center',
+    lineHeight: 17,
+    paddingHorizontal: 8,
+  },
+  conciergeBtn: {
+    backgroundColor: colours.saffron || '#BF5B21',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    shadowColor: colours.saffron || '#BF5B21',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  conciergeBtnText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 12.5,
+    color: '#FFFFFF',
+  },
+});
 
+export default FaqScreen;

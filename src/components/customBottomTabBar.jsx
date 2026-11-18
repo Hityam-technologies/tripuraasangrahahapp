@@ -12,6 +12,7 @@ import Svg, {
   Path,
 } from 'react-native-svg';
 import { useTabBar } from '../context/tabBarContext';
+import FloatingCartBar from './floatingCartBar';
 
 /**
  * Home Icon
@@ -222,13 +223,13 @@ function TabBarButton({
         {config.renderIcon(isFocused, itemColor)}
       </Animated.View>
 
-      {/* Tab Label with Comfortaa font */}
+      {/* Tab Label */}
       <Text
         numberOfLines={1}
         style={{
           color: itemColor,
           fontSize: 11.5,
-          fontFamily: 'Comfortaa-Bold',
+          fontFamily: config.fontFamily || 'Comfortaa-Bold',
           letterSpacing: -0.2,
           marginTop: 3.5,
           ...(Platform.OS === 'ios' ? { fontWeight: '700' } : {}),
@@ -270,6 +271,7 @@ function CustomBottomTabBar({ state, descriptors, navigation }) {
     },
     CommunityTab: {
       label: 'Account',
+      fontFamily: 'Comfortaa-Bold',
       renderIcon: (isFocused, color) => (
         <AccountIcon size={25} isFocused={isFocused} color={color} />
       ),
@@ -290,6 +292,9 @@ function CustomBottomTabBar({ state, descriptors, navigation }) {
         alignItems: 'center',
         transform: [{ translateY: tabBarTranslateY }],
       }}>
+      {/* Floating Cart Button when cart is not empty */}
+      <FloatingCartBar navigation={navigation} />
+
       {/* Spacious White Tab Bar Body with Gentle Top Corner Radius */}
       <View
         style={{

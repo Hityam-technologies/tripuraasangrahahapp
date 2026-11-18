@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [ready, setReady] = useState(false);
   const [forceUpdate, setForceUpdate] = useState(false);
   const [maintenance, setMaintenance] = useState({ active: false, notice: '' });
+  const [referralOffer, setReferralOffer] = useState(null);
 
   const applySession = useCallback(async (payload) => {
     if (!payload?.accessToken) return null;
@@ -32,6 +33,14 @@ export function AuthProvider({ children }) {
       active: Boolean(config.data?.maintenanceMode),
       notice: config.data?.maintenanceNotice || '',
     });
+    const offer = config.data?.referral;
+    if (offer && Number.isFinite(Number(offer.referrerOrderReward))) {
+      setReferralOffer({
+        enabled: offer.enabled !== false,
+        refereeSignupBonus: Number(offer.refereeSignupBonus) || 0,
+        referrerOrderReward: Number(offer.referrerOrderReward) || 0,
+      });
+    }
   }, []);
 
   useEffect(() => {
@@ -75,12 +84,18 @@ export function AuthProvider({ children }) {
     if (result.success) setUser(result.data);
     return result;
   }, []);
+  const refreshUser = useCallback(async () => {
+    const result = await apiCall('get', '/users/me');
+    if (result.success && result.data) setUser(result.data);
+    return result;
+  }, []);
 
   const value = useMemo(() => ({
     user,
     ready,
     forceUpdate,
     maintenance,
+    referralOffer,
     register,
     verifyOtp,
     resendOtp,
@@ -89,13 +104,13 @@ export function AuthProvider({ children }) {
     resetPassword,
     signOut,
     updateProfile,
-  }), [user, ready, forceUpdate, maintenance, register, verifyOtp, resendOtp, login, forgotPassword, resetPassword, signOut, updateProfile]);
+    refreshUser,
+  }), [user, ready, forceUpdate, maintenance, referralOffer, register, verifyOtp, resendOtp, login, forgotPassword, resetPassword, signOut, updateProfile, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {
   const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
+  return context || {};
 }

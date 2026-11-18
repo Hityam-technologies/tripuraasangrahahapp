@@ -15,6 +15,9 @@ import { CatalogProvider } from './src/context/catalogContext';
 import { WardrobeProvider } from './src/context/wardrobeContext';
 import { TryOnProvider } from './src/context/tryOnContext';
 import { TabBarProvider } from './src/context/tabBarContext';
+import { CartProvider } from './src/context/cartContext';
+import { OrdersProvider } from './src/context/ordersContext';
+import { PopupProvider } from './src/context/popupContext';
 import { LoadingProvider } from './src/context/loadingContext';
 
 function AppShell() {
@@ -31,9 +34,15 @@ function AppShell() {
           <WardrobeProvider>
             <TryOnProvider>
               <TabBarProvider>
-                <NavigationContainer>
-                  <AppNavigator />
-                </NavigationContainer>
+                <CartProvider>
+                  <OrdersProvider>
+                    <PopupProvider>
+                      <NavigationContainer>
+                        <AppNavigator />
+                      </NavigationContainer>
+                    </PopupProvider>
+                  </OrdersProvider>
+                </CartProvider>
               </TabBarProvider>
             </TryOnProvider>
           </WardrobeProvider>

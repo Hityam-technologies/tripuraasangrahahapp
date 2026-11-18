@@ -31,8 +31,8 @@ function AccountMenuSection({ items = [], containerStyle }) {
               activeOpacity={0.7}
               onPress={item.onPress}
               style={styles.itemRow}>
-              {/* Icon Container */}
-              <View style={styles.iconCircle}>
+              {/* Only Icon (no rounded circle container) */}
+              <View style={styles.iconSlot}>
                 {item.iconImage ? (
                   <Image
                     source={item.iconImage}
@@ -42,8 +42,8 @@ function AccountMenuSection({ items = [], containerStyle }) {
                 ) : (
                   <Icon
                     name={item.iconName || 'chevron-forward'}
-                    size={item.iconSize || 17}
-                    color={item.iconColor || '#70685E'}
+                    size={item.iconSize || 21}
+                    color={item.iconColor || '#4A433A'}
                   />
                 )}
               </View>
@@ -51,8 +51,14 @@ function AccountMenuSection({ items = [], containerStyle }) {
               {/* Item Label */}
               <Text style={styles.itemLabel}>{item.label}</Text>
 
+              {item.badgeText ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.badgeText}</Text>
+                </View>
+              ) : null}
+
               {/* Right Chevron */}
-              <Icon name="chevron-forward" size={15} color="#A59B8F" />
+              <Icon name="chevron-forward" size={16} color="#B0A699" />
             </TouchableOpacity>
 
             {/* Row Divider (not after last item) */}
@@ -81,36 +87,45 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: 13,
+    paddingHorizontal: 16,
   },
-  iconCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FAF8F4',
-    borderWidth: 1,
-    borderColor: '#EFEAE0',
+  iconSlot: {
+    width: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 14,
   },
   imageIcon: {
-    width: 18,
-    height: 18,
+    width: 22,
+    height: 22,
   },
   itemLabel: {
     flex: 1,
-    fontFamily: 'Comfortaa-Bold',
-    fontSize: 13.5,
+    fontFamily: 'Manrope-SemiBold',
+    fontSize: 14.5,
     color: '#161413',
     letterSpacing: -0.2,
+  },
+  badge: {
+    backgroundColor: '#FDF2EB',
+    borderWidth: 1,
+    borderColor: '#F6D2BA',
+    paddingHorizontal: 10,
+    paddingVertical: 3.5,
+    borderRadius: 12,
+    marginRight: 6,
+  },
+  badgeText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 11.5,
+    color: '#BF5B21',
   },
   divider: {
     height: 1,
     backgroundColor: '#F0ECE4',
-    marginLeft: 58,
-    marginRight: 14,
+    marginLeft: 56,
+    marginRight: 16,
   },
 });
 

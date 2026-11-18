@@ -1,5 +1,18 @@
-import React, { useState } from 'react';
-import { StatusBar, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  StatusBar,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -11,6 +24,7 @@ import CountryPickerBottomSheet, {
 import InputBox from '../../components/inputBox';
 import { ButtonSpinner, LoadingOverlay } from '../../components/loadingSpinner';
 import { useAuth } from '../../context/authContext';
+import { apiCall } from '../../api/client';
 
 const Requirement = ({ ok, label }) => (
   <View className="flex-row items-center w-[48%]">
@@ -33,10 +47,82 @@ const Requirement = ({ ok, label }) => (
  * RegistrationScreen
  * Sign up screen collecting Name, Email (for OTP verification), Phone (for profile/data), and Password.
  */
-function RegistrationScreen({ navigation }) {
+function RegistrationScreen({ navigation, route }) {
   const insets = useSafeAreaInsets();
   const { register } = useAuth();
   const [submitting, setSubmitting] = useState(false);
+
+  const initialReferralCode = (route?.params?.referralCode || '').trim().toUpperCase();
+  const [appliedReferral, setAppliedReferral] = useState(null);
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [tempCode, setTempCode] = useState('');
+  const [modalCodeError, setModalCodeError] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+
+  // Smooth keyboard tracking to lift modal above soft keyboard
+  const keyboardLiftAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!initialReferralCode) return undefined;
+    let live = true;
+    (async () => {
+      const res = await apiCall('get', `/referrals/validate/${encodeURIComponent(initialReferralCode)}`);
+      if (!live || !res?.success || !res?.data?.valid) return;
+      setAppliedReferral({
+        code: res.data.code || initialReferralCode,
+        referrerName: res.data.referrerName,
+        instantCash: Number(res.data.instantCash) || 0,
+      });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [initialReferralCode]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+
+    const showSub = Keyboard.addListener(showEvent, (e) => {
+      // Lift modal card so the entire card and Redeem button are comfortably visible above keyboard
+      const keyboardHeight = e?.endCoordinates?.height || 280;
+      const lift = Platform.OS === 'android' ? Math.max(120, keyboardHeight * 0.42) : Math.min(keyboardHeight * 0.45, 130);
+      Animated.timing(keyboardLiftAnim, {
+        toValue: -lift,
+        duration: Platform.OS === 'ios' ? (e.duration || 250) : 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+
+    const hideSub = Keyboard.addListener(hideEvent, (e) => {
+      Animated.timing(keyboardLiftAnim, {
+        toValue: 0,
+        duration: Platform.OS === 'ios' ? (e?.duration || 200) : 160,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    });
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [keyboardLiftAnim]);
+
+  const handleCloseReferralModal = () => {
+    Keyboard.dismiss();
+    keyboardLiftAnim.setValue(0);
+    setShowReferralModal(false);
+    setModalCodeError('');
+  };
+
+  const handleOpenReferralModal = (code = '') => {
+    Keyboard.dismiss();
+    setTempCode(code);
+    setModalCodeError('');
+    setShowReferralModal(true);
+  };
 
   const [selectedCountry, setSelectedCountry] = useState(
     DEFAULT_COUNTRIES.find((c) => c.name === 'India') || DEFAULT_COUNTRIES[0],
@@ -70,6 +156,44 @@ function RegistrationScreen({ navigation }) {
 
   const validateEmail = (val) => {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+  };
+
+  const handleRedeemCode = async () => {
+    const cleaned = tempCode.trim().toUpperCase();
+    if (!cleaned) {
+      setModalCodeError('Please enter a referral code');
+      return;
+    }
+    if (cleaned.length < 3) {
+      setModalCodeError('Referral code must be at least 3 characters');
+      return;
+    }
+
+    setRedeeming(true);
+    setModalCodeError('');
+    try {
+      const res = await apiCall('get', `/referrals/validate/${encodeURIComponent(cleaned)}`);
+      if (!res?.success || !res?.data?.valid) {
+        setModalCodeError(res?.error?.message || 'Invalid referral code. Please check and try again.');
+        return;
+      }
+      Keyboard.dismiss();
+      keyboardLiftAnim.setValue(0);
+      setAppliedReferral({
+        code: res.data.code || cleaned,
+        referrerName: res.data.referrerName,
+        instantCash: Number(res.data.instantCash) || 0,
+      });
+      setShowReferralModal(false);
+      setTempCode('');
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
+  const handleRemoveReferral = () => {
+    setAppliedReferral(null);
+    setTempCode('');
   };
 
   const handleRegister = async () => {
@@ -131,12 +255,17 @@ function RegistrationScreen({ navigation }) {
     const fullPhone = `${selectedCountry.code} ${phone.trim()}`;
     setSubmitting(true);
     try {
-      const result = await register({
+      const cleanedRefCode = appliedReferral?.code || '';
+      const payload = {
         fullName: name.trim(),
         email: email.trim(),
         phone: fullPhone,
         password,
-      });
+      };
+      if (cleanedRefCode) {
+        payload.referralCode = cleanedRefCode;
+      }
+      const result = await register(payload);
       if (!result.success) {
         setEmailError(result.error?.message || 'The account could not be created.');
         return;
@@ -145,6 +274,9 @@ function RegistrationScreen({ navigation }) {
         email: email.trim(),
         phone: fullPhone,
         name: name.trim(),
+        referralCode: cleanedRefCode || undefined,
+        referrerName: appliedReferral?.referrerName || undefined,
+        instantCash: appliedReferral?.instantCash || 0,
         isRegistration: true,
         isForgotPassword: false,
       });
@@ -173,7 +305,8 @@ function RegistrationScreen({ navigation }) {
         contentContainerStyle={{ flexGrow: 1 }}
         bounces={false}
         keyboardShouldPersistTaps="handled"
-        enableOnAndroid
+        enableOnAndroid={!showReferralModal}
+        scrollEnabled={!showReferralModal}
         extraScrollHeight={20}
         showsVerticalScrollIndicator={false}>
         <View
@@ -347,6 +480,39 @@ function RegistrationScreen({ navigation }) {
                   </TouchableOpacity>
                 }
               />
+
+              {/* Referral Code Link or Added Details */}
+              {appliedReferral ? (
+                <View style={styles.referralSuccessCard}>
+                  <Text style={styles.referralSuccessTitle}>
+                    Referred by {appliedReferral.referrerName}
+                  </Text>
+                  {appliedReferral.code ? (
+                    <Text style={styles.referralSuccessCode}>
+                      Code: {appliedReferral.code}
+                    </Text>
+                  ) : null}
+                  <Text style={styles.referralSuccessCode}>
+                    {appliedReferral.instantCash > 0
+                      ? `₹${Number(appliedReferral.instantCash).toLocaleString('en-IN')} store cash is added when you verify your email.`
+                      : 'This code will be linked when you verify your email.'}
+                  </Text>
+                  <TouchableOpacity onPress={handleRemoveReferral} accessibilityRole="button">
+                    <Text style={styles.referralRemoveText}>Remove code</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => handleOpenReferralModal('')}
+                  style={styles.referralLinkBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="Have a referral code">
+                  <Text style={styles.referralLinkText}>
+                    Have a referral code?
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -392,8 +558,202 @@ function RegistrationScreen({ navigation }) {
         onSelectCountry={(country) => setSelectedCountry(country)}
         selectedCountry={selectedCountry}
       />
+
+      {/* Referral Code Popup Modal */}
+      <Modal
+        visible={showReferralModal}
+        transparent={true}
+        animationType="fade"
+        statusBarTranslucent={true}
+        onRequestClose={handleCloseReferralModal}>
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={handleCloseReferralModal}>
+          <Animated.View
+            style={[
+              styles.modalCard,
+              { transform: [{ translateY: keyboardLiftAnim }] },
+            ]}>
+            <Pressable onPress={(e) => e.stopPropagation()}>
+              <View style={styles.modalHeaderRow}>
+                <Text style={styles.modalTitle}>Enter Referral Code</Text>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={handleCloseReferralModal}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  accessibilityRole="button"
+                  accessibilityLabel="Close referral modal">
+                  <Icon name="close" size={20} color="#7D756A" />
+                </TouchableOpacity>
+              </View>
+
+              <Text style={styles.modalSubtitle}>
+                Enter the referral code shared by your friend to link their invitation.
+              </Text>
+
+              <View style={styles.modalInputWrap}>
+                <TextInput
+                  value={tempCode}
+                  onChangeText={(text) => {
+                    setTempCode(text.replace(/[^A-Za-z0-9]/g, '').toUpperCase());
+                    if (modalCodeError) setModalCodeError('');
+                  }}
+                  placeholder="e.g. CHAITAN1000"
+                  placeholderTextColor="#A0998F"
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                  onSubmitEditing={handleRedeemCode}
+                  style={styles.modalInput}
+                />
+              </View>
+
+              {modalCodeError ? (
+                <Text style={styles.modalErrorText}>{modalCodeError}</Text>
+              ) : null}
+
+              <TouchableOpacity
+                activeOpacity={0.88}
+                disabled={redeeming}
+                onPress={handleRedeemCode}
+                style={[
+                  styles.redeemBtn,
+                  redeeming && { opacity: 0.8 },
+                ]}>
+                {redeeming ? (
+                  <ButtonSpinner color="#FFFFFF" />
+                ) : (
+                  <Text style={styles.redeemBtnText}>Redeem Code</Text>
+                )}
+              </TouchableOpacity>
+            </Pressable>
+          </Animated.View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  referralLinkBtn: {
+    alignSelf: 'flex-start',
+    paddingVertical: 5,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  referralLinkText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 12.5,
+    color: colours.primary || '#BF5B21',
+    textDecorationLine: 'underline',
+  },
+  referralSuccessCard: {
+    backgroundColor: '#F3FAF5',
+    borderWidth: 1,
+    borderColor: '#CDEBD7',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 2,
+    marginBottom: 6,
+  },
+  referralSuccessTitle: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 12.5,
+    color: '#156F3D',
+  },
+  referralSuccessCode: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 11,
+    color: '#348655',
+    marginTop: 2,
+  },
+  referralRemoveText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 11,
+    color: '#156F3D',
+    marginTop: 6,
+    textDecorationLine: 'underline',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 360,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 22,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  modalTitle: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 16.5,
+    color: '#161413',
+  },
+  modalSubtitle: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 12.5,
+    color: '#6E675D',
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  modalInputWrap: {
+    backgroundColor: '#FAF8F4',
+    borderWidth: 1.2,
+    borderColor: '#ECE6DC',
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 2,
+  },
+  modalInput: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 14,
+    color: '#161413',
+    paddingVertical: 10,
+    letterSpacing: 0.8,
+  },
+  modalErrorText: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 11.5,
+    color: '#EF4444',
+    marginTop: 6,
+    marginLeft: 2,
+  },
+  redeemBtn: {
+    backgroundColor: colours.primary || '#BF5B21',
+    borderRadius: 16,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    shadowColor: colours.primary || '#BF5B21',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  redeemBtnText: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 14,
+    color: '#FFFFFF',
+    letterSpacing: 0.3,
+  },
+});
 
 export default RegistrationScreen;

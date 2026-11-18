@@ -54,6 +54,7 @@ function ProfileEditBottomSheet({
       visible={visible}
       onClose={onClose}
       title="My Profile"
+      titleStyle={{ fontFamily: 'Manrope-Bold' }}
       maxHeight="85%">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* 1. Full Name (Editable) */}
@@ -134,12 +135,12 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   fieldLabel: {
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-Bold',
     fontSize: 12,
     color: '#5E574E',
   },
   editableHint: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 10.5,
     color: colours.saffron || '#BF5B21',
   },
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10.5,
-    fontFamily: 'Comfortaa-Bold',
+    fontFamily: 'Manrope-SemiBold',
     fontSize: 13.5,
     color: '#161413',
   },
@@ -176,7 +177,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11.5,
   },
   readOnlyText: {
-    fontFamily: 'Comfortaa-Medium',
+    fontFamily: 'Manrope-Medium',
     fontSize: 13,
     color: '#6E675D',
   },

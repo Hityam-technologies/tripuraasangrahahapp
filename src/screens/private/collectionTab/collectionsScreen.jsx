@@ -2,14 +2,11 @@ import React, { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import {
   Animated,
   Image,
-  Modal,
   Platform,
   ScrollView,
   Share,
   StatusBar,
-  StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -25,9 +22,11 @@ import SareeProductCard from '../../../components/sareeProductCard';
 import CategoryStoryBar from '../../../components/categoryStoryBar';
 import SearchBar from '../../../components/searchBar';
 import TryOnConfirmModal from '../../../components/tryOnConfirmModal';
-import { SectionLoader } from '../../../components/loadingSpinner';
+import CartHeaderButton from '../../../components/cartHeaderButton';
+import { ButtonSpinner, SectionLoader } from '../../../components/loadingSpinner';
 import { useTabBar } from '../../../context/tabBarContext';
 import { useWishlist } from '../../../context/wishlistContext';
+import { useCart } from '../../../context/cartContext';
 import { SORT_OPTIONS, QUICK_CHIPS } from '../../../data';
 import { useCatalog } from '../../../context/catalogContext';
 import { useLoading } from '../../../context/loadingContext';
@@ -84,7 +83,9 @@ function CollectionsScreen({ navigation, route }) {
   const [activeQuickChip, setActiveQuickChip] = useState('all');
   const [sortBy, setSortBy] = useState('featured');
   const { wishlist, toggleWishlist } = useWishlist();
+  const { addToCart, isInCart } = useCart();
   const { navigateWithLoading } = useLoading();
+  const [isAddingCart, setIsAddingCart] = useState(false);
 
   // Selected Product Detail Sheet
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -225,9 +226,14 @@ function CollectionsScreen({ navigation, route }) {
       />
 
       {/* =========================================================================
-          1. LUXURY FIXED TOP HEADER (Identical ScreenHeader across Collections, Wishlist, Account)
+          1. LUXURY FIXED TOP HEADER (ScreenHeader with Cart Icon in Top-Right)
          ========================================================================= */}
-      <ScreenHeader title="Collections" />
+      <ScreenHeader
+        title="Collections"
+        rightElement={
+          <CartHeaderButton onPress={() => navigation?.navigate?.('Cart')} />
+        }
+      />
 
       {/* Search Bar & Saffron View Changer Component */}
       <View style={{ paddingHorizontal: hPadding, paddingBottom: 10 }}>
@@ -301,20 +307,21 @@ function CollectionsScreen({ navigation, route }) {
               style={{
                 flexDirection: 'row',
                 alignItems: 'center',
-                paddingHorizontal: 12,
-                paddingVertical: 6.5,
+                paddingHorizontal: 13,
+                paddingVertical: 7,
                 borderRadius: 20,
                 backgroundColor: '#FFFFFF',
                 borderWidth: 1,
                 borderColor: '#E8E4DC',
                 gap: 5,
               }}>
-              <Icon name="swap-vertical" size={13} color={colours.saffron || '#BF5B21'} />
+              <Icon name="swap-vertical" size={13.5} color={colours.saffron || '#BF5B21'} />
               <Text
                 style={{
-                  fontFamily: 'Comfortaa-Bold',
-                  fontSize: 11.5,
+                  fontFamily: 'Manrope-Bold',
+                  fontSize: 12.8,
                   color: '#161413',
+                  letterSpacing: -0.2,
                 }}>
                 {SORT_OPTIONS.find((s) => s.id === sortBy)?.label}
               </Text>
@@ -329,8 +336,8 @@ function CollectionsScreen({ navigation, route }) {
                   activeOpacity={0.75}
                   onPress={() => setActiveQuickChip(chip.id)}
                   style={{
-                    paddingHorizontal: 13,
-                    paddingVertical: 6.5,
+                    paddingHorizontal: 14,
+                    paddingVertical: 7,
                     borderRadius: 20,
                     backgroundColor: isChipActive
                       ? colours.saffronSoft || '#FDF2EB'
@@ -342,11 +349,12 @@ function CollectionsScreen({ navigation, route }) {
                   }}>
                   <Text
                     style={{
-                      fontFamily: isChipActive ? 'Comfortaa-Bold' : 'Comfortaa-Medium',
-                      fontSize: 11.5,
+                      fontFamily: 'Manrope-Bold',
+                      fontSize: 12.8,
+                      letterSpacing: -0.2,
                       color: isChipActive
                         ? colours.saffron || '#BF5B21'
-                        : '#5E574E',
+                        : '#443D34',
                     }}>
                     {chip.label}
                   </Text>
@@ -357,29 +365,19 @@ function CollectionsScreen({ navigation, route }) {
         </View>
 
         {/* =====================================================================
-            [CHILD 2] SCROLLABLE CONTENT (Results Counter & Products Grid Below)
+            [CHILD 2] SCROLLABLE CONTENT (Products Grid Below)
            ===================================================================== */}
-        <View style={{ paddingTop: 8 }}>
-          {/* Results Counter & Active Category Subhead */}
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              paddingHorizontal: hPadding,
-              marginBottom: 12,
-            }}>
-            <Text
+        <View style={{ paddingTop: 4 }}>
+          {/* Active Category / Filter Reset Strip */}
+          {(activeCategory !== 'all' || activeQuickChip !== 'all' || searchQuery.length > 0) && (
+            <View
               style={{
-                fontFamily: 'Comfortaa-Bold',
-                fontSize: 13,
-                color: '#38322B',
-                letterSpacing: -0.2,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                paddingHorizontal: hPadding,
+                marginBottom: 8,
               }}>
-              {filteredProducts.length} Heirloom {filteredProducts.length === 1 ? 'Weave' : 'Weaves'}
-            </Text>
-
-            {(activeCategory !== 'all' || activeQuickChip !== 'all' || searchQuery.length > 0) && (
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => {
@@ -391,15 +389,15 @@ function CollectionsScreen({ navigation, route }) {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <Text
                   style={{
-                    fontFamily: 'Comfortaa-Bold',
-                    fontSize: 11.5,
+                    fontFamily: 'Manrope-Bold',
+                    fontSize: 12,
                     color: colours.saffron || '#BF5B21',
                   }}>
                   Reset All
                 </Text>
               </TouchableOpacity>
-            )}
-          </View>
+            </View>
+          )}
 
           {/* =====================================================================
               PRODUCT FEED (Clean Responsive Saree Grid with Generous Gaps)
@@ -420,31 +418,31 @@ function CollectionsScreen({ navigation, route }) {
               </Text>
             </View>
           ) : (
-          <View
-            style={{
-              paddingHorizontal: hPadding,
-              flexDirection: 'row',
-              flexWrap: 'wrap',
-              justifyContent: responsiveColumns > 1 ? 'space-between' : 'flex-start',
-              rowGap: isSmallDevice ? 12 : 14,
-            }}>
-            {filteredProducts.map((item) => (
-              <SareeProductCard
-                key={`${item.id}-${cardLayout}`}
-                product={item}
-                cardWidth={cardWidth}
-                isWishlisted={!!wishlist[item.id]}
-                onPress={openProduct}
-                onTryOn={(prod) => {
-                  setTryOnConfirmSaree(prod);
-                }}
-                onToggleWishlist={toggleWishlist}
-                style={{
-                  marginBottom: isWide ? 18 : (isSmallDevice ? 14 : 16),
-                }}
-              />
-            ))}
-          </View>
+            <View
+              style={{
+                paddingHorizontal: hPadding,
+                flexDirection: 'row',
+                flexWrap: 'wrap',
+                justifyContent: responsiveColumns > 1 ? 'space-between' : 'flex-start',
+                rowGap: isSmallDevice ? 12 : 14,
+              }}>
+              {filteredProducts.map((item) => (
+                <SareeProductCard
+                  key={`${item.id}-${cardLayout}`}
+                  product={item}
+                  cardWidth={cardWidth}
+                  isWishlisted={!!wishlist[item.id]}
+                  onPress={openProduct}
+                  onTryOn={(prod) => {
+                    setTryOnConfirmSaree(prod);
+                  }}
+                  onToggleWishlist={toggleWishlist}
+                  style={{
+                    marginBottom: isWide ? 18 : (isSmallDevice ? 14 : 16),
+                  }}
+                />
+              ))}
+            </View>
           )}
 
           {/* =====================================================================
@@ -714,18 +712,30 @@ function CollectionsScreen({ navigation, route }) {
                 <Icon name="share-outline" size={20} color="#161413" />
               </TouchableOpacity>
 
-              {/* Main AI Try On Button */}
+              {/* Main Add to Cart Button */}
               <TouchableOpacity
                 activeOpacity={0.85}
-                onPress={() => {
-                  const prod = selectedProduct;
-                  setTryOnConfirmSaree(prod);
+                disabled={isAddingCart}
+                onPress={async () => {
+                  if (isInCart(selectedProduct.id)) {
+                    setSelectedProduct(null);
+                    navigation?.navigate?.('Cart');
+                  } else {
+                    setIsAddingCart(true);
+                    try {
+                      await addToCart(selectedProduct);
+                    } finally {
+                      setIsAddingCart(false);
+                    }
+                  }
                 }}
                 style={{
                   flex: 1,
                   height: 48,
                   borderRadius: 24,
-                  backgroundColor: colours.saffron || '#BF5B21',
+                  backgroundColor: isInCart(selectedProduct.id)
+                    ? '#161413'
+                    : colours.saffron || '#BF5B21',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexDirection: 'row',
@@ -735,17 +745,59 @@ function CollectionsScreen({ navigation, route }) {
                   shadowOpacity: 0.35,
                   shadowRadius: 6,
                   elevation: 3,
+                  opacity: isAddingCart ? 0.9 : 1,
                 }}>
-                <Icon name="camera-outline" size={17} color="#FFFFFF" />
-                <Text
-                  style={{
-                    fontFamily: 'Manrope-Bold',
-                    fontSize: 13,
-                    color: '#FFFFFF',
-                    letterSpacing: 0.3,
-                  }}>
-                  Try On With AI
-                </Text>
+                {isAddingCart ? (
+                  <>
+                    <ButtonSpinner color="#FFFFFF" />
+                    <Text
+                      style={{
+                        fontFamily: 'Manrope-Bold',
+                        fontSize: 13,
+                        color: '#FFFFFF',
+                        letterSpacing: 0.3,
+                      }}>
+                      Adding...
+                    </Text>
+                  </>
+                ) : (
+                  <>
+                    <Icon
+                      name={isInCart(selectedProduct.id) ? 'cart' : 'cart-outline'}
+                      size={17}
+                      color="#FFFFFF"
+                    />
+                    <Text
+                      style={{
+                        fontFamily: 'Manrope-Bold',
+                        fontSize: 13,
+                        color: '#FFFFFF',
+                        letterSpacing: 0.3,
+                      }}>
+                      {isInCart(selectedProduct.id) ? 'In Cart' : 'Add to Cart'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              {/* AI Try On Button */}
+              <TouchableOpacity
+                activeOpacity={0.85}
+                onPress={() => {
+                  const prod = selectedProduct;
+                  setTryOnConfirmSaree(prod);
+                }}
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 24,
+                  backgroundColor: '#FFFFFF',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  borderWidth: 1,
+                  borderColor: '#EDE9E2',
+                }}>
+                <Icon name="camera-outline" size={20} color={colours.saffron || '#BF5B21'} />
               </TouchableOpacity>
             </View>
           </>
