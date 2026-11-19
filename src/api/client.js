@@ -110,22 +110,57 @@ api.interceptors.response.use(
   },
 );
 
+const FRIENDLY_BY_CODE = {
+  EMAIL_NOT_CONFIGURED:
+    'We could not send the verification email right now. Please try again shortly, or contact the atelier on WhatsApp.',
+  EMAIL_SEND_FAILED:
+    'We could not send the verification email. Please check the address and try again in a moment.',
+  ACCOUNT_EXISTS: 'An account with that email or phone already exists.',
+  ACCOUNT_BLOCKED: 'This account is paused. Please contact the atelier.',
+  NETWORK: 'The atelier is unreachable. Check that the API is running.',
+  TIMEOUT:
+    'The atelier took too long to respond. If you just created an account, wait a moment and try again — the email may still arrive.',
+};
+
+function normalizeApiError(errorBody, httpStatus) {
+  const raw = errorBody?.error || {};
+  const code = raw.code || (httpStatus === 403 ? 'ACCOUNT_BLOCKED' : 'NETWORK');
+  const generic = !raw.message || /something went wrong/i.test(raw.message);
+  return {
+    code,
+    message: generic && FRIENDLY_BY_CODE[code] ? FRIENDLY_BY_CODE[code] : (raw.message || FRIENDLY_BY_CODE.NETWORK),
+    ...(raw.details ? { details: raw.details } : {}),
+  };
+}
+
 export async function apiCall(method, url, data, config = {}) {
   try {
     const response = await api.request({ method, url, data, ...config });
     return response.data;
   } catch (error) {
     const body = error.response?.data;
-    if (body && body.success === false) return body;
+    if (body && body.success === false) {
+      return { ...body, error: normalizeApiError(body, error.response?.status) };
+    }
+    if (error.code === 'ECONNABORTED' || /timeout/i.test(error.message || '')) {
+      return {
+        success: false,
+        error: { code: 'TIMEOUT', message: FRIENDLY_BY_CODE.TIMEOUT },
+      };
+    }
+    if (!error.response) {
+      return {
+        success: false,
+        error: { code: 'NETWORK', message: FRIENDLY_BY_CODE.NETWORK },
+      };
+    }
     const blocked = error.response?.status === 403 && body?.error?.code === 'ACCOUNT_BLOCKED';
     return {
       success: false,
-      error: body?.error || {
-        code: blocked ? 'ACCOUNT_BLOCKED' : 'NETWORK',
-        message: blocked
-          ? 'This account is paused. Please contact the atelier.'
-          : 'The atelier is unreachable. Check that the API is running.',
-      },
+      error: normalizeApiError(
+        blocked ? { error: { code: 'ACCOUNT_BLOCKED' } } : body,
+        error.response?.status,
+      ),
     };
   }
 }

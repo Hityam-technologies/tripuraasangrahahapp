@@ -137,9 +137,58 @@ function RegistrationScreen({ navigation, route }) {
   const [passwordError, setPasswordError] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [confirmPasswordError, setConfirmPasswordError] = useState('');
+  const [formError, setFormError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
+
+  const mapRegisterError = (error) => {
+    const code = error?.code || '';
+    const message = error?.message || '';
+    if (code === 'ACCOUNT_EXISTS' || /already exists/i.test(message)) {
+      return {
+        field: 'email',
+        text: 'An account with that email or phone already exists. Try signing in instead.',
+      };
+    }
+    if (code === 'EMAIL_NOT_CONFIGURED' || code === 'EMAIL_SEND_FAILED') {
+      return {
+        field: 'form',
+        text:
+          message ||
+          'We could not send the verification email right now. Please try again shortly.',
+      };
+    }
+    if (code === 'VALIDATION_ERROR') {
+      const detail = error?.details?.[0]?.message;
+      const path = error?.details?.[0]?.path || '';
+      if (path.includes('email')) return { field: 'email', text: detail || 'Enter a valid email address.' };
+      if (path.includes('phone')) return { field: 'phone', text: detail || 'Enter a valid phone number.' };
+      if (path.includes('password')) return { field: 'password', text: detail || 'Password does not meet requirements.' };
+      if (path.includes('fullName') || path.includes('name')) {
+        return { field: 'name', text: detail || 'Please enter your full name.' };
+      }
+      return { field: 'form', text: detail || message || 'Please check your details and try again.' };
+    }
+    if (code === 'TIMEOUT') {
+      return {
+        field: 'form',
+        text:
+          message ||
+          'The atelier took too long to respond. Please try again in a moment.',
+      };
+    }
+    if (code === 'NETWORK') {
+      return {
+        field: 'form',
+        text: 'The atelier is unreachable. Check your connection and try again.',
+      };
+    }
+    return {
+      field: 'form',
+      text: message || 'The account could not be created. Please try again.',
+    };
+  };
 
   const hasMinLength = password.length >= 8;
   const hasUpper = /[A-Z]/.test(password);
@@ -155,7 +204,8 @@ function RegistrationScreen({ navigation, route }) {
   ].filter(Boolean).length;
 
   const validateEmail = (val) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(val.trim());
+    // Require a real domain + TLD (blocks incomplete values like user@gmail.c)
+    return /^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(val.trim());
   };
 
   const handleRedeemCode = async () => {
@@ -253,12 +303,13 @@ function RegistrationScreen({ navigation, route }) {
 
     if (!valid || submitting) return;
     const fullPhone = `${selectedCountry.code} ${phone.trim()}`;
+    setFormError('');
     setSubmitting(true);
     try {
       const cleanedRefCode = appliedReferral?.code || '';
       const payload = {
         fullName: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: fullPhone,
         password,
       };
@@ -267,11 +318,22 @@ function RegistrationScreen({ navigation, route }) {
       }
       const result = await register(payload);
       if (!result.success) {
-        setEmailError(result.error?.message || 'The account could not be created.');
+        const mapped = mapRegisterError(result.error);
+        setNameError('');
+        setEmailError('');
+        setPhoneError('');
+        setPasswordError('');
+        setConfirmPasswordError('');
+        setFormError('');
+        if (mapped.field === 'email') setEmailError(mapped.text);
+        else if (mapped.field === 'phone') setPhoneError(mapped.text);
+        else if (mapped.field === 'password') setPasswordError(mapped.text);
+        else if (mapped.field === 'name') setNameError(mapped.text);
+        else setFormError(mapped.text);
         return;
       }
       navigation?.navigate?.('Otp', {
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         phone: fullPhone,
         name: name.trim(),
         referralCode: cleanedRefCode || undefined,
@@ -336,6 +398,7 @@ function RegistrationScreen({ navigation, route }) {
                 value={name}
                 onChangeText={(text) => {
                   setName(text);
+                  setFormError('');
                   if (text) setNameError('');
                 }}
                 error={!!nameError}
@@ -352,6 +415,7 @@ function RegistrationScreen({ navigation, route }) {
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
+                  setFormError('');
                   if (text) setEmailError('');
                 }}
                 error={!!emailError}
@@ -366,6 +430,7 @@ function RegistrationScreen({ navigation, route }) {
                 value={phone}
                 onChangeText={(text) => {
                   setPhone(text);
+                  setFormError('');
                   if (text) setPhoneError('');
                 }}
                 error={!!phoneError}
@@ -518,6 +583,28 @@ function RegistrationScreen({ navigation, route }) {
 
           {/* Submit Action */}
           <View className="mt-8 mb-4">
+            {formError ? (
+              <View
+                style={{
+                  backgroundColor: '#FEF2F2',
+                  borderWidth: 1,
+                  borderColor: '#FECACA',
+                  borderRadius: 14,
+                  paddingHorizontal: 14,
+                  paddingVertical: 12,
+                  marginBottom: 14,
+                }}>
+                <Text
+                  style={{
+                    fontFamily: 'Manrope-Medium',
+                    fontSize: 13,
+                    lineHeight: 18,
+                    color: '#B91C1C',
+                  }}>
+                  {formError}
+                </Text>
+              </View>
+            ) : null}
             <TouchableOpacity
               activeOpacity={0.88}
               disabled={submitting}
