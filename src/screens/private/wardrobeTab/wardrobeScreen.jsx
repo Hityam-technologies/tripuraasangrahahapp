@@ -140,6 +140,7 @@ function WardrobeScreen({ navigation }) {
       confirmText: 'Remove',
       cancelText: 'Cancel',
       destructive: true,
+      icon: 'trash-outline',
       onConfirm: () => removeTryOnLook(sareeId),
     });
   };

@@ -10,6 +10,7 @@ export function AuthProvider({ children }) {
   const [forceUpdate, setForceUpdate] = useState(false);
   const [maintenance, setMaintenance] = useState({ active: false, notice: '' });
   const [referralOffer, setReferralOffer] = useState(null);
+  const [maxOrderQuantity, setMaxOrderQuantity] = useState(99);
 
   const applySession = useCallback(async (payload) => {
     if (!payload?.accessToken) return null;
@@ -33,6 +34,8 @@ export function AuthProvider({ children }) {
       active: Boolean(config.data?.maintenanceMode),
       notice: config.data?.maintenanceNotice || '',
     });
+    const limit = Math.floor(Number(config.data?.maxOrderQuantity));
+    if (limit >= 1) setMaxOrderQuantity(Math.min(999, limit));
     const offer = config.data?.referral;
     if (offer && Number.isFinite(Number(offer.referrerOrderReward))) {
       setReferralOffer({
@@ -84,6 +87,30 @@ export function AuthProvider({ children }) {
     if (result.success) setUser(result.data);
     return result;
   }, []);
+  const uploadAvatar = useCallback(async (asset) => {
+    if (!asset?.uri) {
+      return { success: false, error: { code: 'BAD_IMAGE', message: 'Choose a photo to upload.' } };
+    }
+    const body = new FormData();
+    body.append('avatar', {
+      uri: asset.uri,
+      type: asset.type || 'image/jpeg',
+      name: asset.fileName || `avatar_${Date.now()}.jpg`,
+    });
+    const result = await apiCall('post', '/media/upload/avatar', body, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    if (result.success) {
+      // Prefer the full user object from the upload response; fall back to patching avatarUrl.
+      if (result.data?.user) setUser(result.data.user);
+      else if (result.data?.avatarUrl || result.data?.url) {
+        setUser((prev) => (prev
+          ? { ...prev, avatarUrl: result.data.avatarUrl || result.data.url }
+          : prev));
+      }
+    }
+    return result;
+  }, []);
   const refreshUser = useCallback(async () => {
     const result = await apiCall('get', '/users/me');
     if (result.success && result.data) setUser(result.data);
@@ -96,6 +123,7 @@ export function AuthProvider({ children }) {
     forceUpdate,
     maintenance,
     referralOffer,
+    maxOrderQuantity,
     register,
     verifyOtp,
     resendOtp,
@@ -104,8 +132,9 @@ export function AuthProvider({ children }) {
     resetPassword,
     signOut,
     updateProfile,
+    uploadAvatar,
     refreshUser,
-  }), [user, ready, forceUpdate, maintenance, referralOffer, register, verifyOtp, resendOtp, login, forgotPassword, resetPassword, signOut, updateProfile, refreshUser]);
+  }), [user, ready, forceUpdate, maintenance, referralOffer, maxOrderQuantity, register, verifyOtp, resendOtp, login, forgotPassword, resetPassword, signOut, updateProfile, uploadAvatar, refreshUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

@@ -18,6 +18,8 @@ import colours from '../../assets/colours';
 import GradientBackground from '../../components/gradientBackground';
 import ScreenHeader from '../../components/screenHeader';
 import { SectionLoader } from '../../components/loadingSpinner';
+import UserAvatar from '../../components/userAvatar';
+import { useAuth } from '../../context/authContext';
 import { useOrders } from '../../context/ordersContext';
 import { dash } from '../../lib/text';
 
@@ -38,6 +40,9 @@ function formatPrice(val) {
 function OrdersScreen({ navigation }) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth } = useWindowDimensions();
+  const { user } = useAuth();
+  const avatarUri = user?.avatarUrl && user.avatarUrl !== '-' ? user.avatarUrl : '';
+  const accountName = user?.fullName || user?.name || '';
   const isSmallDevice = screenWidth < 375;
   const hPadding = isSmallDevice ? 14 : 18;
 
@@ -223,11 +228,21 @@ function OrdersScreen({ navigation }) {
                       </Text>
                     </View>
 
-                    {order.shippingAddress?.city ? (
+                    {order.shippingAddress?.city || order.shippingAddress?.fullName ? (
                       <View style={styles.metaItem}>
-                        <Icon name="location-outline" size={14} color="#7D756A" />
-                        <Text style={styles.metaText}>
-                          {order.shippingAddress.city} ({order.shippingAddress.postalCode})
+                        <UserAvatar
+                          uri={avatarUri}
+                          name={order.shippingAddress?.fullName || accountName}
+                          size={20}
+                          borderWidth={0}
+                        />
+                        <Text style={styles.metaText} numberOfLines={1}>
+                          {order.shippingAddress?.fullName
+                            ? `${order.shippingAddress.fullName}`
+                            : ''}
+                          {order.shippingAddress?.city
+                            ? `${order.shippingAddress?.fullName ? ' · ' : ''}${order.shippingAddress.city}${order.shippingAddress.postalCode ? ` (${order.shippingAddress.postalCode})` : ''}`
+                            : ''}
                         </Text>
                       </View>
                     ) : null}

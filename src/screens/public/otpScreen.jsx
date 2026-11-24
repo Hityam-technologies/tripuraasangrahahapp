@@ -249,15 +249,18 @@ function OtpScreen({ navigation, route }) {
                   </Text>
                 )}
               </Text>
+
+              {/* Spam Folder Note (Plain text note, no box, bold emphasis) */}
+              <Text className="font-manrope-medium text-xs leading-5 text-gray-500 text-center mt-3.5 px-2">
+                <Text className="font-manrope-bold text-gray-700">Note: </Text>
+                Please check your{' '}
+                <Text className="font-manrope-bold text-gray-800">spam or junk folder</Text> if the email does not appear in your inbox.
+              </Text>
             </View>
           </View>
 
-          {/* Action CTA with plain text note above button */}
+          {/* Action CTA */}
           <View className="mt-8 mb-4">
-            <Text className="font-manrope text-xs leading-[18px] text-gray-400 text-center mb-3 pr-1">
-              Can't find the code? Check your spam or promotions folder.
-            </Text>
-
             <TouchableOpacity
               activeOpacity={0.88}
               onPress={handleVerify}

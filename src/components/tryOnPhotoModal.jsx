@@ -8,59 +8,59 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../assets/colours';
 import BottomSheet from './bottomSheet';
+import { useLoading } from '../context/loadingContext';
 import { usePopup } from '../context/popupContext';
 import { useTryOn } from '../context/tryOnContext';
+import { friendlyPhotoError, openAppSettings, pickPhoto } from '../lib/pickPhoto';
 
 /**
- * TryOnPhotoModal Component
- *
- * Streamlined 2-option photo selection modal:
- * - "Take Photo"
- * - "Choose Photo"
- * Clean, minimal, and directly updates the user's drape fitting photo.
+ * TryOnPhotoModal — choose a portrait for AI draping (camera or gallery).
  */
 function TryOnPhotoModal({ visible = false, onClose }) {
   const { uploadPortrait } = useTryOn();
   const { showAlert } = usePopup();
+  const { runWithLoading } = useLoading();
 
-  const pickPhoto = async (source) => {
-    let picker;
-    try {
-      picker = require('react-native-image-picker');
-    } catch {
-      showAlert({
-        title: 'Photo Library',
-        message: 'The photo library is not available in this build yet.',
-      });
+  const showPhotoIssue = (message, openSettings = false) => {
+    showAlert({
+      title: 'Photo',
+      message,
+      icon: 'camera-outline',
+      buttonText: openSettings ? 'Open Settings' : 'OK',
+      onPress: openSettings ? () => openAppSettings() : undefined,
+    });
+  };
+
+  const handlePick = async (source) => {
+    const picked = await pickPhoto(source);
+    if (picked.cancelled) return;
+    if (picked.error) {
+      showPhotoIssue(picked.error, picked.openSettings);
       return;
     }
-    const launch = source === 'camera' ? picker.launchCamera : picker.launchImageLibrary;
-    const result = await launch({ mediaType: 'photo', quality: 0.85, saveToPhotos: false });
-    const asset = result?.assets?.[0];
-    if (!asset?.uri) return;
-    const uploaded = await uploadPortrait(asset);
-    if (!uploaded.success) {
-      showAlert({
-        title: 'Photo Upload',
-        message: uploaded.error?.message || 'The portrait could not be saved.',
-        type: 'destructive',
-      });
+
+    onClose?.();
+
+    const uploaded = await runWithLoading(
+      () => uploadPortrait(picked.asset),
+      'Saving portrait...',
+    );
+
+    if (!uploaded?.success) {
+      showPhotoIssue(
+        friendlyPhotoError(
+          uploaded?.error?.message || 'Your portrait could not be saved. Please try again.',
+          source,
+        ),
+      );
       return;
     }
+
     showAlert({
       title: 'Photo Saved',
       message: 'Your portrait is ready for AI saree draping.',
       type: 'success',
     });
-    onClose?.();
-  };
-
-  const handleTakePhoto = () => {
-    pickPhoto('camera');
-  };
-
-  const handleChoosePhoto = () => {
-    pickPhoto('library');
   };
 
   return (
@@ -70,10 +70,9 @@ function TryOnPhotoModal({ visible = false, onClose }) {
       title="Change Photo"
       maxHeight="45%">
       <View style={styles.container}>
-        {/* Option 1: Take Photo */}
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={handleTakePhoto}
+          onPress={() => handlePick('camera')}
           style={styles.optionButton}>
           <View style={styles.iconContainer}>
             <Icon
@@ -89,10 +88,9 @@ function TryOnPhotoModal({ visible = false, onClose }) {
           <Icon name="chevron-forward" size={18} color="#A39A8F" />
         </TouchableOpacity>
 
-        {/* Option 2: Choose Photo */}
         <TouchableOpacity
           activeOpacity={0.8}
-          onPress={handleChoosePhoto}
+          onPress={() => handlePick('library')}
           style={styles.optionButton}>
           <View style={styles.iconContainer}>
             <Icon

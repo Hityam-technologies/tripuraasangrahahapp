@@ -34,15 +34,15 @@ function AppShell() {
           <WardrobeProvider>
             <TryOnProvider>
               <TabBarProvider>
-                <CartProvider>
-                  <OrdersProvider>
-                    <PopupProvider>
+                <PopupProvider>
+                  <CartProvider>
+                    <OrdersProvider>
                       <NavigationContainer>
                         <AppNavigator />
                       </NavigationContainer>
-                    </PopupProvider>
-                  </OrdersProvider>
-                </CartProvider>
+                    </OrdersProvider>
+                  </CartProvider>
+                </PopupProvider>
               </TabBarProvider>
             </TryOnProvider>
           </WardrobeProvider>

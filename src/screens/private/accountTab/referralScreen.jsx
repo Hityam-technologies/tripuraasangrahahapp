@@ -1,7 +1,9 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
 import {
+  ActivityIndicator,
   Platform,
+  RefreshControl,
   ScrollView,
   Share,
   StatusBar,
@@ -16,8 +18,11 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import colours from '../../../assets/colours';
 import GradientBackground from '../../../components/gradientBackground';
 import ScreenHeader from '../../../components/screenHeader';
+import { SectionLoader } from '../../../components/loadingSpinner';
+import UserAvatar from '../../../components/userAvatar';
 import { apiCall } from '../../../api/client';
 import { useAuth } from '../../../context/authContext';
+import { dash } from '../../../lib/text';
 
 function rupee(amount) {
   return `₹${Number(amount || 0).toLocaleString('en-IN')}`;
@@ -33,23 +38,41 @@ function ReferralScreen({ navigation }) {
   const [copied, setCopied] = useState(false);
   const [feed, setFeed] = useState(null);
   const [codeReady, setCodeReady] = useState(false);
+  const [loading, setLoading] = useState(!feed);
+  const [refreshing, setRefreshing] = useState(false);
+  const feedRef = useRef(feed);
+
+  useEffect(() => {
+    feedRef.current = feed;
+  }, [feed]);
+
+  const loadData = useCallback(async (isPull = false) => {
+    if (isPull) {
+      setRefreshing(true);
+    } else if (!feedRef.current) {
+      setLoading(true);
+    }
+    try {
+      const [res] = await Promise.all([
+        apiCall('get', '/referrals/me'),
+        refreshUser?.(),
+      ]);
+      if (res?.success && res.data) {
+        setFeed(res.data);
+      }
+    } catch {
+      // Graceful offline fallback
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+      setCodeReady(true);
+    }
+  }, [refreshUser]);
 
   useFocusEffect(
     useCallback(() => {
-      let live = true;
-      (async () => {
-        const [res] = await Promise.all([
-          apiCall('get', '/referrals/me'),
-          refreshUser?.(),
-        ]);
-        if (!live) return;
-        if (res?.success && res.data) setFeed(res.data);
-        setCodeReady(true);
-      })();
-      return () => {
-        live = false;
-      };
-    }, [refreshUser]),
+      loadData(false);
+    }, [loadData]),
   );
 
   const referralCode = feed?.referralCode || user?.referralCode || '';
@@ -109,25 +132,49 @@ function ReferralScreen({ navigation }) {
         titleStyle={{ fontFamily: 'Manrope-Bold' }}
       />
 
-      {/* ===================================================================
-          SCROLLABLE CONTENT
-          =================================================================== */}
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          {
-            paddingHorizontal: hPadding,
-            paddingBottom: Math.max(insets.bottom + 24, 36),
-          },
-        ]}
-        showsVerticalScrollIndicator={false}
-        bounces={true}>
+      {loading && !feed ? (
+        <View style={styles.loadingContainer}>
+          <SectionLoader message="Loading your referrals..." minHeight={260} />
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            {
+              paddingHorizontal: hPadding,
+              paddingBottom: Math.max(insets.bottom + 24, 36),
+            },
+          ]}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => loadData(true)}
+              colors={[colours.primary || '#BF5B21']}
+              tintColor={colours.primary || '#BF5B21'}
+            />
+          }>
 
         {/* ===================================================================
             2. MAIN HEADLINE (Left Aligned)
             =================================================================== */}
         <View style={styles.headlineSection}>
+          <View style={styles.memberRow}>
+            <UserAvatar
+              uri={feed?.profile?.avatarUrl || user?.avatarUrl || ''}
+              name={feed?.profile?.fullName || user?.fullName || user?.name || ''}
+              size={44}
+              borderWidth={1.5}
+            />
+            <View style={styles.memberCopy}>
+              <Text style={styles.memberName} numberOfLines={1}>
+                {dash(feed?.profile?.fullName || user?.fullName || user?.name)}
+              </Text>
+              <Text style={styles.memberHint}>Your referral profile</Text>
+            </View>
+          </View>
           <Text style={styles.headlineText}>
             Refer Your Friend &{'\n'}Earn {rewardKnown ? rupee(orderReward) : '…'}
           </Text>
@@ -238,13 +285,20 @@ function ReferralScreen({ navigation }) {
             <Text style={styles.recentSectionTitle}>Your Referrals</Text>
             <View style={styles.referralCountBadge}>
               <Text style={styles.referralCountText}>
-                {referrals.length} {referrals.length === 1 ? 'Friend' : 'Friends'}
+                {refreshing && referrals.length === 0
+                  ? '...'
+                  : `${referrals.length} ${referrals.length === 1 ? 'Friend' : 'Friends'}`}
               </Text>
             </View>
           </View>
 
           <View style={styles.recentCard}>
-            {referrals.length === 0 ? (
+            {refreshing && referrals.length === 0 ? (
+              <View style={styles.inlineLoading}>
+                <ActivityIndicator size="small" color={colours.primary || '#BF5B21'} />
+                <Text style={styles.inlineLoadingText}>Loading referrals...</Text>
+              </View>
+            ) : referrals.length === 0 ? (
               <Text style={styles.emptyReferrals}>
                 Friends who use your code will show up here.
               </Text>
@@ -257,12 +311,12 @@ function ReferralScreen({ navigation }) {
               return (
                 <View key={item.id}>
                   <View style={styles.recentRow}>
-                    {/* Modern Avatar with Saffron Tint */}
-                    <View style={styles.recentAvatar}>
-                      <Text style={styles.recentAvatarText}>
-                        {item.name.charAt(0)}
-                      </Text>
-                    </View>
+                    <UserAvatar
+                      uri={item.avatarUrl || ''}
+                      name={item.name || ''}
+                      size={40}
+                      style={styles.recentAvatar}
+                    />
 
                     {/* Friend Details */}
                     <View style={styles.recentInfo}>
@@ -309,6 +363,7 @@ function ReferralScreen({ navigation }) {
           </View>
         </View>
       </ScrollView>
+      )}
     </GradientBackground>
   );
 }
@@ -326,6 +381,26 @@ const styles = StyleSheet.create({
      ------------------------------------------------------------------------- */
   headlineSection: {
     marginBottom: 18,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 14,
+    gap: 12,
+  },
+  memberCopy: {
+    flex: 1,
+  },
+  memberName: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 15,
+    color: '#161413',
+  },
+  memberHint: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 11.5,
+    color: '#8A8277',
+    marginTop: 2,
   },
   headlineText: {
     fontFamily: 'Manrope-Bold',
@@ -563,18 +638,8 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   recentAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
-    backgroundColor: '#FFF5EB',
-    alignItems: 'center',
-    justifyContent: 'center',
     marginRight: 12,
-  },
-  recentAvatarText: {
-    fontFamily: 'Manrope-Bold',
-    fontSize: 15,
-    color: colours.saffron || '#BF5B21',
+    borderRadius: 14,
   },
   recentInfo: {
     flex: 1,
@@ -632,6 +697,23 @@ const styles = StyleSheet.create({
   recentDivider: {
     height: 1,
     backgroundColor: '#F5F3EF',
+  },
+  loadingContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  inlineLoading: {
+    paddingVertical: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  inlineLoadingText: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 13,
+    color: '#7D756A',
+    marginTop: 8,
   },
 });
 

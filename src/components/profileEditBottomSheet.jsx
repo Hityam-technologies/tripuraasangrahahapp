@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -13,18 +14,19 @@ import BottomSheet from './bottomSheet';
 import { dash } from '../lib/text';
 
 /**
- * ProfileEditBottomSheet Component
- * 
- * Modular bottom sheet for user profile details:
- * - Only Full Name is editable
- * - Phone Number & Email Address are locked, verified account credentials
- * - Pure white background (#FFFFFF) with refined luxury styling
+ * ProfileEditBottomSheet
+ *
+ * Edit name + change profile photo.
+ * Phone and email stay locked (verified account credentials).
  */
 function ProfileEditBottomSheet({
   visible = false,
   onClose,
   userProfile,
   initialProfile = { name: '', email: '', phone: '' },
+  photoSource = null,
+  nameInitial = '-',
+  onChangePhoto,
   onSave,
 }) {
   const current = userProfile || initialProfile || {};
@@ -57,7 +59,29 @@ function ProfileEditBottomSheet({
       titleStyle={{ fontFamily: 'Manrope-Bold' }}
       maxHeight="85%">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* 1. Full Name (Editable) */}
+        {/* Profile photo — tap to change (uploads to ImageKit /profile-pics) */}
+        <View style={styles.photoSection}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onChangePhoto}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+            style={styles.photoTap}>
+            <View style={styles.photoCircle}>
+              {photoSource ? (
+                <Image source={photoSource} style={styles.photoImage} resizeMode="cover" />
+              ) : (
+                <Text style={styles.photoInitial}>{nameInitial}</Text>
+              )}
+            </View>
+            <View style={styles.photoBadge}>
+              <Icon name="camera" size={13} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
+          <Text style={styles.photoHint}>Change profile photo</Text>
+        </View>
+
+        {/* Full Name (Editable) */}
         <View style={styles.fieldGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.fieldLabel}>Full Name</Text>
@@ -75,7 +99,7 @@ function ProfileEditBottomSheet({
           />
         </View>
 
-        {/* 2. Phone Number (Non-editable / Locked Account Credential) */}
+        {/* Phone Number (locked) */}
         <View style={styles.fieldGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.fieldLabel}>Phone Number</Text>
@@ -90,7 +114,7 @@ function ProfileEditBottomSheet({
           </View>
         </View>
 
-        {/* 3. Email Address (Non-editable / Locked Account Credential) */}
+        {/* Email Address (locked) */}
         <View style={styles.emailFieldGroup}>
           <View style={styles.labelRow}>
             <Text style={styles.fieldLabel}>Email Address</Text>
@@ -105,7 +129,6 @@ function ProfileEditBottomSheet({
           </View>
         </View>
 
-        {/* Save Changes Button */}
         <TouchableOpacity
           activeOpacity={0.85}
           onPress={handleSave}
@@ -121,6 +144,54 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingTop: 4,
     paddingBottom: 6,
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  photoTap: {
+    position: 'relative',
+    marginBottom: 8,
+  },
+  photoCircle: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2.5,
+    borderColor: colours.saffron || '#BF5B21',
+    padding: 2.5,
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 40,
+  },
+  photoInitial: {
+    fontFamily: 'Manrope-Bold',
+    fontSize: 34,
+    color: colours.saffron || '#BF5B21',
+  },
+  photoBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colours.saffron || '#BF5B21',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  photoHint: {
+    fontFamily: 'Manrope-Medium',
+    fontSize: 12,
+    color: colours.saffron || '#BF5B21',
   },
   fieldGroup: {
     marginBottom: 14,

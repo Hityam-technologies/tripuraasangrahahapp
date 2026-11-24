@@ -1,8 +1,8 @@
-import React, { createContext, useContext, useState, useMemo, useCallback, useEffect } from 'react';
-import { Alert } from 'react-native';
+import React, { createContext, useContext, useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { apiCall } from '../api/client';
 import { presentSaree } from '../api/media';
 import { useAuth } from './authContext';
+import { usePopup } from './popupContext';
 
 const CartContext = createContext(null);
 
@@ -10,6 +10,7 @@ function fromApi(data) {
   return (data?.items || []).map((item) => ({
     id: item.productId || item.id,
     quantity: item.quantity || 1,
+    stockQuantity: null,
     addedAt: Date.now(),
     product: presentSaree(item.product || {
       id: item.productId,
@@ -25,17 +26,32 @@ function fromApi(data) {
 }
 
 export function CartProvider({ children }) {
-  const { user } = useAuth();
+  const { user, maxOrderQuantity = 99 } = useAuth();
+  const { showAlert } = usePopup();
   const [cartItems, setCartItems] = useState([]);
   const [promoCode, setPromoCode] = useState('');
   const [discountAmount, setDiscountAmount] = useState(0);
 
+  // The latest number the shopper tapped, until the server agrees.
+  // A slow cart reload must not paint an older count over this.
+  const pendingQty = useRef(new Map());
+  const syncingIds = useRef(new Set());
+
+  const withPending = useCallback((items) => items
+    .map((item) => {
+      const pending = pendingQty.current.get(item.id);
+      if (pending == null || pending <= 0) return item;
+      return { ...item, quantity: pending };
+    })
+    .filter((item) => pendingQty.current.get(item.id) !== 0), []);
+
   const applyCart = useCallback((data) => {
-    if (data) setCartItems(fromApi(data));
-  }, []);
+    if (data) setCartItems(withPending(fromApi(data)));
+  }, [withPending]);
 
   const refreshCart = useCallback(async () => {
     if (!user) {
+      pendingQty.current.clear();
       setCartItems([]);
       setPromoCode('');
       setDiscountAmount(0);
@@ -49,13 +65,12 @@ export function CartProvider({ children }) {
     refreshCart();
   }, [refreshCart]);
 
-  const fail = (result) => {
-    try {
-      Alert?.alert?.('Bag', result?.error?.message || 'The bag could not be updated.');
-    } catch {
-      // ignore
-    }
-  };
+  const fail = useCallback((result) => {
+    showAlert({
+      title: 'Bag',
+      message: result?.error?.message || 'The bag could not be updated.',
+    });
+  }, [showAlert]);
 
   const addToCart = useCallback(async (product, quantity = 1) => {
     if (!product?.id) return;
@@ -63,7 +78,8 @@ export function CartProvider({ children }) {
       const idx = prev.findIndex((i) => i.id === product.id);
       if (idx >= 0) {
         const next = [...prev];
-        next[idx] = { ...next[idx], quantity: next[idx].quantity + quantity };
+        const cap = Math.max(1, Number(maxOrderQuantity) || 99);
+        next[idx] = { ...next[idx], quantity: Math.min(cap, next[idx].quantity + quantity) };
         return next;
       }
       return [
@@ -90,7 +106,7 @@ export function CartProvider({ children }) {
     } catch {
       // Keep optimistic
     }
-  }, [user, applyCart, refreshCart]);
+  }, [user, applyCart, refreshCart, maxOrderQuantity, fail]);
 
   const removeFromCart = useCallback(async (productId) => {
     if (!productId) return;
@@ -107,27 +123,64 @@ export function CartProvider({ children }) {
     } catch {
       // Keep optimistic
     }
-  }, [user, applyCart, refreshCart]);
+  }, [user, applyCart, refreshCart, fail]);
 
   const updateQuantity = useCallback(async (productId, newQty) => {
     if (!productId) return;
+    const qty = Math.max(0, Math.round(Number(newQty) || 0));
+    pendingQty.current.set(productId, qty);
     setCartItems((prev) => {
-      if (newQty <= 0) return prev.filter((item) => item.id !== productId);
-      return prev.map((item) => (item.id === productId ? { ...item, quantity: newQty } : item));
+      if (qty <= 0) return prev.filter((item) => item.id !== productId);
+      return prev.map((item) => (item.id === productId ? { ...item, quantity: qty } : item));
     });
-    if (!user) return;
-    try {
-      const result = await apiCall('put', `/cart/items/${productId}`, { quantity: newQty });
-      if (result.success && result.data) {
-        applyCart(result.data);
-      } else if (!result.success) {
-        fail(result);
-        refreshCart();
-      }
-    } catch {
-      // Keep optimistic
+    if (!user) {
+      pendingQty.current.delete(productId);
+      return;
     }
-  }, [user, applyCart, refreshCart]);
+    if (syncingIds.current.has(productId)) return;
+    syncingIds.current.add(productId);
+    try {
+      while (pendingQty.current.has(productId)) {
+        const target = pendingQty.current.get(productId);
+        const result = await apiCall('put', `/cart/items/${encodeURIComponent(productId)}`, { quantity: target });
+        if (pendingQty.current.get(productId) !== target) continue;
+        pendingQty.current.delete(productId);
+        if (result.success && result.data) {
+          applyCart(result.data);
+          const saved = (result.data.items || []).find((item) => (item.productId || item.id) === productId);
+          if (saved && target > saved.quantity) {
+            fail({ error: { message: `You can choose up to ${saved.quantity} on one order.` } });
+          }
+        } else if (!result.success) {
+          fail(result);
+          const refresh = await apiCall('get', '/cart');
+          if (pendingQty.current.has(productId)) continue;
+          if (refresh.success) applyCart(refresh.data);
+        }
+      }
+    } finally {
+      syncingIds.current.delete(productId);
+      if (pendingQty.current.has(productId)) {
+        const leftover = pendingQty.current.get(productId);
+        updateQuantity(productId, leftover);
+      }
+    }
+  }, [user, applyCart, fail]);
+
+  const changeQuantity = useCallback((productId, delta) => {
+    const item = cartItems.find((entry) => entry.id === productId);
+    const current = pendingQty.current.has(productId)
+      ? pendingQty.current.get(productId)
+      : (item?.quantity || 1);
+    const cap = Math.max(1, Number(maxOrderQuantity) || 99);
+    const next = Math.min(cap, current + delta);
+    if (delta > 0 && next === current) {
+      fail({ error: { message: `An order can include up to ${cap} of one item.` } });
+      return;
+    }
+    if (next === current) return;
+    updateQuantity(productId, next);
+  }, [cartItems, updateQuantity, maxOrderQuantity, fail]);
 
   const clearCart = useCallback(async () => {
     setPromoCode('');
@@ -154,6 +207,7 @@ export function CartProvider({ children }) {
 
   const value = useMemo(() => ({
     cartItems,
+    maxOrderQuantity,
     cartCount,
     subtotal,
     discountAmount,
@@ -165,13 +219,14 @@ export function CartProvider({ children }) {
     addToCart,
     removeFromCart,
     updateQuantity,
+    changeQuantity,
     clearCart,
     isInCart,
     getCartItem,
     refreshCart,
   }), [
-    cartItems, cartCount, subtotal, discountAmount, totalAmount, promoCode,
-    addToCart, removeFromCart, updateQuantity, clearCart, isInCart, getCartItem, refreshCart,
+    cartItems, maxOrderQuantity, cartCount, subtotal, discountAmount, totalAmount, promoCode,
+    addToCart, removeFromCart, updateQuantity, changeQuantity, clearCart, isInCart, getCartItem, refreshCart,
   ]);
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

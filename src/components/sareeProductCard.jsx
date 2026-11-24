@@ -379,15 +379,15 @@ function SareeProductCard({
             ))}
           </ScrollView>
         ) : (
-          /* Single image view */
+          /* Single primary photo. A real width and height lets Android paint it. */
           <TouchableOpacity
             activeOpacity={0.96}
             onPress={() => onPress?.(product)}
-            style={StyleSheet.absoluteFillObject}>
+            style={{ width: '100%', height: '100%' }}>
             {imageList[0] ? (
               <Image
                 source={imageList[0]}
-                style={StyleSheet.absoluteFillObject}
+                style={{ width: '100%', height: '100%' }}
                 resizeMode="cover"
               />
             ) : (

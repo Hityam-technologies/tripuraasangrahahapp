@@ -362,17 +362,23 @@ function CardDetailScreen({ navigation, route }) {
 
   const craftSpecs = useMemo(() => {
     if (!currentProduct) return [];
-    const list = [
+    const fixed = [
       ['Weave', currentProduct.weave],
       ['Fabric', currentProduct.fabric],
       ['Zari', currentProduct.zari],
       ['Origin', currentProduct.origin],
-      ['Body', currentProduct.body],
-      ['Border', currentProduct.border],
-      ['Pallu', currentProduct.pallu],
-      ['Blouse', currentProduct.blouse],
-    ];
-    return list.filter(([, val]) => val && String(val).trim());
+    ].filter(([, val]) => val && String(val).trim());
+    const custom = Array.isArray(currentProduct.features) && currentProduct.features.length
+      ? currentProduct.features
+        .map((item) => [item.key, item.value])
+        .filter(([key, val]) => key && String(val || '').trim())
+      : [
+        ['Body', currentProduct.body],
+        ['Border', currentProduct.border],
+        ['Pallu', currentProduct.pallu],
+        ['Blouse', currentProduct.blouse],
+      ].filter(([, val]) => val && String(val).trim());
+    return [...fixed, ...custom];
   }, [currentProduct]);
 
   // Fetch full saree details only when this detail screen opens
@@ -868,27 +874,22 @@ function CardDetailScreen({ navigation, route }) {
           <View style={styles.fixedBottomContainer}>
             <TouchableOpacity
               activeOpacity={0.88}
-              disabled={isAddingToCart}
+              disabled={isAddingToCart || alreadyInCart}
               onPress={async () => {
-                if (alreadyInCart) {
-                  handleClose();
-                  setTimeout(() => navigation?.navigate?.('Cart'), 240);
-                } else {
-                  setIsAddingToCart(true);
-                  try {
-                    await addToCart(currentProduct);
-                  } finally {
-                    setIsAddingToCart(false);
-                  }
+                setIsAddingToCart(true);
+                try {
+                  await addToCart(currentProduct);
+                } finally {
+                  setIsAddingToCart(false);
                 }
               }}
               style={[
                 styles.addToCartBtn,
                 alreadyInCart && styles.alreadyInCartBtn,
-                isAddingToCart && { opacity: 0.9 },
+                isAddingToCart && { opacity: 0.7 },
               ]}
               accessibilityRole="button"
-              accessibilityLabel={alreadyInCart ? 'In cart' : 'Add to cart'}>
+              accessibilityLabel={alreadyInCart ? 'Added to cart' : 'Add to cart'}>
               {isAddingToCart ? (
                 <>
                   <ButtonSpinner color="#FFFFFF" />
@@ -906,7 +907,7 @@ function CardDetailScreen({ navigation, route }) {
                       styles.addToCartBtnText,
                       alreadyInCart && styles.alreadyInCartBtnText,
                     ]}>
-                    {alreadyInCart ? 'In Cart' : 'Add to Cart'}
+                    {alreadyInCart ? 'Added to Cart' : 'Add to Cart'}
                   </Text>
                 </>
               )}

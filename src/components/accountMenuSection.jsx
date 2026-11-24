@@ -31,9 +31,11 @@ function AccountMenuSection({ items = [], containerStyle }) {
               activeOpacity={0.7}
               onPress={item.onPress}
               style={styles.itemRow}>
-              {/* Only Icon (no rounded circle container) */}
+              {/* Leading icon, image, or custom node (e.g. profile avatar) */}
               <View style={styles.iconSlot}>
-                {item.iconImage ? (
+                {item.leading ? (
+                  item.leading
+                ) : item.iconImage ? (
                   <Image
                     source={item.iconImage}
                     style={styles.imageIcon}
@@ -91,7 +93,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   iconSlot: {
-    width: 26,
+    minWidth: 26,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 14,

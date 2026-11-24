@@ -31,9 +31,11 @@ describe('Cart Foundation and Context', () => {
   test('initializes with empty cart and supports add, update, remove, clear', () => {
     act(() => {
       renderer.create(
-        <CartProvider>
-          <TestConsumer />
-        </CartProvider>,
+        <PopupProvider>
+          <CartProvider>
+            <TestConsumer />
+          </CartProvider>
+        </PopupProvider>,
       );
     });
 

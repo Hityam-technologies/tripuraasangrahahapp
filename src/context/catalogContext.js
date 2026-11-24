@@ -15,6 +15,7 @@ export function CatalogProvider({ children }) {
   const [faq, setFaq] = useState([]);
   const [store, setStore] = useState(null);
   const [support, setSupport] = useState(null);
+  const [hero, setHero] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const inFlight = useRef(false);
@@ -25,12 +26,13 @@ export function CatalogProvider({ children }) {
     inFlight.current = true;
     if (!silent) setLoading(true);
     try {
-      const [sareeRes, categoryRes, faqRes, storeRes, supportRes] = await Promise.all([
+      const [sareeRes, categoryRes, faqRes, storeRes, supportRes, heroRes] = await Promise.all([
         apiCall('get', '/sarees', null, { params: { limit: 50, sort: 'featured' } }),
         apiCall('get', '/categories'),
         apiCall('get', '/content/faq'),
         apiCall('get', '/content/store-address'),
         apiCall('get', '/content/support-channels'),
+        apiCall('get', '/content/hero'),
       ]);
       if (sareeRes.success) {
         setSarees((sareeRes.data.items || []).map(presentSaree));
@@ -59,6 +61,7 @@ export function CatalogProvider({ children }) {
           helplineDisplay: byType.phone?.message || byType.phone?.value,
         });
       }
+      if (heroRes.success) setHero(heroRes.data || null);
     } finally {
       inFlight.current = false;
       setLoading(false);
@@ -101,11 +104,12 @@ export function CatalogProvider({ children }) {
     faq,
     store,
     support,
+    hero,
     loading,
     error,
     refresh,
     getSaree,
-  }), [sarees, categories, faq, store, support, loading, error, refresh, getSaree]);
+  }), [sarees, categories, faq, store, support, hero, loading, error, refresh, getSaree]);
 
   return <CatalogContext.Provider value={value}>{children}</CatalogContext.Provider>;
 }

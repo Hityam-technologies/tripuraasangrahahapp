@@ -132,7 +132,11 @@ function HomeScreen({ navigation }) {
         return;
       }
       setHasTriedFallback(true);
-      // Swap between Metro asset and Android raw name
+      const remote = typeof videoSource?.uri === 'string' && /^https?:\/\//i.test(videoSource.uri);
+      if (remote) {
+        setVideoSource(HERO_VIDEO_SOURCE);
+        return;
+      }
       if (Platform.OS === 'android' && videoSource?.uri === 'kausalya_edit') {
         const resolved = Image.resolveAssetSource(HERO_VIDEO);
         if (resolved?.uri) {
@@ -144,6 +148,18 @@ function HomeScreen({ navigation }) {
     },
     [hasTriedFallback, videoSource],
   );
+
+  useEffect(() => {
+    const remote = hero?.isActive !== false
+      && typeof hero?.videoUrl === 'string'
+      && /^https?:\/\//i.test(hero.videoUrl);
+    if (remote) {
+      setVideoSource({ uri: hero.videoUrl });
+      setHasTriedFallback(false);
+      return;
+    }
+    if (hero) setVideoSource(HERO_VIDEO_SOURCE);
+  }, [hero]);
 
   const handleVideoEnd = useCallback(() => {
     // Extra safety so the runway clip always loops
@@ -280,7 +296,7 @@ function HomeScreen({ navigation }) {
   );
 
   // Top Picks: imported strictly from data file (renders any number of items given in data)
-  const { sarees, categories, loading, error, refresh } = useCatalog();
+  const { sarees, categories, hero, loading, error, refresh } = useCatalog();
   const { navigateWithLoading } = useLoading();
 
   const openProduct = useCallback(
@@ -350,6 +366,8 @@ function HomeScreen({ navigation }) {
           muted
           paused={!isFocused}
           controls={false}
+          poster={hero?.posterUrl || undefined}
+          posterResizeMode="cover"
           disableFocus
           shutterColor="#000000"
           viewType={ViewType.TEXTURE}
@@ -376,7 +394,11 @@ function HomeScreen({ navigation }) {
           transform: [{ translateY: heroTranslateY }],
         }}>
         <Image
-          source={require('../../../assets/homeLogo.png')}
+          source={
+            hero?.logoUrl && /^https?:\/\//i.test(hero.logoUrl)
+              ? { uri: hero.logoUrl }
+              : require('../../../assets/homeLogo.png')
+          }
           style={{
             width: isSmallDevice ? 175 : 210,
             height: Math.round((isSmallDevice ? 175 : 210) / (1672 / 941)),

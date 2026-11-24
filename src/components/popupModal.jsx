@@ -67,8 +67,9 @@ function PopupModal({
     type === 'destructive' || buttons.some((b) => b.style === 'destructive');
   const isSuccess = type === 'success';
 
+  // Use alert for errors; callers that mean "delete" should pass icon="trash-outline"
   const defaultIconName = isDestructive
-    ? 'trash-outline'
+    ? 'alert-circle-outline'
     : isSuccess
     ? 'checkmark-circle-outline'
     : 'information-circle-outline';

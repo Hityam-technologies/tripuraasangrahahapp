@@ -17,6 +17,7 @@ import GradientBackground from '../../../components/gradientBackground';
 import ScreenHeader from '../../../components/screenHeader';
 import AccountMenuSection from '../../../components/accountMenuSection';
 import ProfileEditBottomSheet from '../../../components/profileEditBottomSheet';
+import ProfilePhotoModal from '../../../components/profilePhotoModal';
 import StoreAddressBottomSheet from '../../../components/storeAddressBottomSheet';
 import SupportBottomSheet from '../../../components/supportBottomSheet';
 import { useTabBar } from '../../../context/tabBarContext';
@@ -25,6 +26,7 @@ import { useLoading } from '../../../context/loadingContext';
 import { usePopup } from '../../../context/popupContext';
 import { dash } from '../../../lib/text';
 import { useCatalog } from '../../../context/catalogContext';
+import { imageSource } from '../../../api/media';
 
 const GOOGLE_MAPS_ICON = require('../../../assets/google_maps.png');
 
@@ -72,11 +74,14 @@ function AccountScreen({ navigation }) {
     });
   }, [user]);
 
-  const photoUrl = user?.avatarUrl && user.avatarUrl !== '-' ? user.avatarUrl : '';
+  const photoSource = imageSource(
+    user?.avatarUrl && user.avatarUrl !== '-' ? user.avatarUrl : '',
+  );
   const nameInitial = (userProfile.name || '').trim().charAt(0).toUpperCase() || '-';
 
   // Modal Sheet Visibility States
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [isStoreModalOpen, setIsStoreModalOpen] = useState(false);
   const [isSupportModalOpen, setIsSupportModalOpen] = useState(false);
 
@@ -100,6 +105,7 @@ function AccountScreen({ navigation }) {
       confirmText: 'Sign Out',
       cancelText: 'Cancel',
       destructive: true,
+      icon: 'log-out-outline',
       onConfirm: async () => {
         await runWithLoading(async () => {
           await signOut();
@@ -134,7 +140,8 @@ function AccountScreen({ navigation }) {
       iconSize: 21,
       label: 'Refer & Earn',
       badgeText: 'Earn cash',
-      onPress: () => navigation?.navigate?.('Referral'),
+      onPress: () =>
+        navigateWithLoading(navigation, 'Referral', undefined, 'Opening Refer & Earn...'),
     },
     {
       id: 'store_address',
@@ -149,7 +156,7 @@ function AccountScreen({ navigation }) {
       label: 'Support',
       onPress: () => setIsSupportModalOpen(true),
     },
-  ], [navigation]);
+  ], [navigation, navigateWithLoading]);
 
   // Section 2 Items: Legal & Policies
   const legalAndPolicyItems = useMemo(() => [
@@ -203,19 +210,29 @@ function AccountScreen({ navigation }) {
         scrollEventThrottle={16}
         onScroll={handleScroll}
         bounces={true}>
-        {/* User Profile Avatar & Name */}
+        {/* User Profile Avatar & Name — tap avatar to change photo */}
         <View style={styles.profileHeader}>
-          <View style={styles.avatarBorder}>
-            {photoUrl ? (
-              <Image
-                source={{ uri: photoUrl }}
-                style={styles.avatarImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <Text style={styles.avatarInitial}>{nameInitial}</Text>
-            )}
-          </View>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={() => setIsPhotoModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Change profile photo"
+            style={styles.avatarTap}>
+            <View style={styles.avatarBorder}>
+              {photoSource ? (
+                <Image
+                  source={photoSource}
+                  style={styles.avatarImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Text style={styles.avatarInitial}>{nameInitial}</Text>
+              )}
+            </View>
+            <View style={styles.editBadge}>
+              <Icon name="camera" size={14} color="#FFFFFF" />
+            </View>
+          </TouchableOpacity>
 
           <Text style={styles.userName}>{dash(userProfile.name)}</Text>
           {Number(user?.walletBalance) > 0 ? (
@@ -251,6 +268,12 @@ function AccountScreen({ navigation }) {
         visible={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         userProfile={userProfile}
+        photoSource={photoSource}
+        nameInitial={nameInitial}
+        onChangePhoto={() => {
+          setIsProfileModalOpen(false);
+          setTimeout(() => setIsPhotoModalOpen(true), 280);
+        }}
         onSave={async (updated) => {
           const result = await updateProfile({
             fullName: updated.name || updated.fullName,
@@ -260,6 +283,12 @@ function AccountScreen({ navigation }) {
             setUserProfile((prev) => ({ ...prev, ...updated, name: result.data.fullName, phone: result.data.phone }));
           }
         }}
+      />
+
+      {/* Profile photo camera / gallery sheet */}
+      <ProfilePhotoModal
+        visible={isPhotoModalOpen}
+        onClose={() => setIsPhotoModalOpen(false)}
       />
 
       {/* Store Address Bottom Sheet */}
@@ -285,6 +314,11 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     paddingTop: 8,
   },
+  // Wrap avatar + camera badge so the whole circle is tappable
+  avatarTap: {
+    position: 'relative',
+    marginBottom: 12,
+  },
   avatarBorder: {
     width: 82,
     height: 82,
@@ -301,7 +335,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.16,
     shadowRadius: 8,
     elevation: 3,
-    marginBottom: 12,
   },
   avatarImage: {
     width: '100%',
@@ -313,6 +346,21 @@ const styles = StyleSheet.create({
     fontSize: 32,
     color: colours.saffron || '#BF5B21',
     textAlign: 'center',
+  },
+  // Small saffron camera chip on the bottom-right of the avatar
+  editBadge: {
+    position: 'absolute',
+    right: 0,
+    bottom: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colours.saffron || '#BF5B21',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    elevation: 2,
   },
   userName: {
     fontFamily: 'Manrope-Bold',

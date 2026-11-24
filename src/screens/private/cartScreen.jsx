@@ -23,6 +23,7 @@ import ScreenHeader from '../../components/screenHeader';
 import CouponBottomSheet from '../../components/couponBottomSheet';
 import { ButtonSpinner } from '../../components/loadingSpinner';
 import { apiCall } from '../../api/client';
+import { imageSource } from '../../api/media';
 import { useAuth } from '../../context/authContext';
 import { useCart } from '../../context/cartContext';
 import { useOrders } from '../../context/ordersContext';
@@ -53,6 +54,7 @@ function CartScreen({ navigation }) {
 
   const {
     cartItems,
+    maxOrderQuantity,
     cartCount,
     subtotal,
     discountAmount,
@@ -60,7 +62,7 @@ function CartScreen({ navigation }) {
     promoCode,
     setPromoCode,
     setDiscountAmount,
-    updateQuantity,
+    changeQuantity,
     removeFromCart,
     clearCart,
     refreshCart,
@@ -252,6 +254,7 @@ function CartScreen({ navigation }) {
       confirmText: 'Remove',
       cancelText: 'Cancel',
       destructive: true,
+      icon: 'trash-outline',
       onConfirm: () => removeFromCart(item.id),
     });
   };
@@ -279,6 +282,7 @@ function CartScreen({ navigation }) {
                   confirmText: 'Clear All',
                   cancelText: 'Cancel',
                   destructive: true,
+                  icon: 'trash-outline',
                   onConfirm: clearCart,
                 });
               }}
@@ -359,10 +363,12 @@ function CartScreen({ navigation }) {
             <View style={styles.itemsListContainer}>
               {cartItems.map((item) => {
                 const prod = item.product || {};
-                const imageSrc =
-                  (Array.isArray(prod.images) && prod.images[0]) ||
-                  prod.image ||
-                  null;
+                const imageSrc = imageSource(
+                  (Array.isArray(prod.images) && (prod.images[0]?.url || prod.images[0]))
+                  || prod.image
+                  || item.image,
+                );
+                const atMax = item.quantity >= (maxOrderQuantity || 99);
 
                 return (
                   <View key={item.id} style={styles.cartCard}>
@@ -431,7 +437,7 @@ function CartScreen({ navigation }) {
                                 if (item.quantity <= 1) {
                                   handleConfirmRemove(item);
                                 } else {
-                                  updateQuantity(item.id, item.quantity - 1);
+                                  changeQuantity(item.id, -1);
                                 }
                               }}
                               style={styles.stepperBtn}
@@ -449,10 +455,11 @@ function CartScreen({ navigation }) {
 
                             <TouchableOpacity
                               activeOpacity={0.7}
-                              onPress={() =>
-                                updateQuantity(item.id, item.quantity + 1)
-                              }
-                              style={styles.stepperBtn}
+                              disabled={atMax}
+                              onPress={() => {
+                                if (!atMax) changeQuantity(item.id, 1);
+                              }}
+                              style={[styles.stepperBtn, atMax && { opacity: 0.35 }]}
                               accessibilityLabel="Increase quantity">
                               <Icon name="add" size={13} color="#161413" />
                             </TouchableOpacity>

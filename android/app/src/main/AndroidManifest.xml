@@ -1,8 +1,21 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Required for Take Photo (profile + try-on). Runtime prompt is handled in JS. -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- Gallery on Android 13+ -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <!-- Gallery on Android 12 and below -->
+    <uses-permission
+      android:name="android.permission.READ_EXTERNAL_STORAGE"
+      android:maxSdkVersion="32" />
+
+    <uses-feature
+      android:name="android.hardware.camera"
+      android:required="false" />
+    <uses-feature
+      android:name="android.hardware.camera.autofocus"
+      android:required="false" />
 
     <application
       android:name=".MainApplication"
